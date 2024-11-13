@@ -45,7 +45,7 @@ class MyCobot:
         self.robot_type = self.config.robot_type
         self.cameras = self.config.cameras
         self.is_connected = False
-        self.teleop = None
+        #self.joystick = None
         self.logs = {}
 
         self.mc = None
@@ -82,18 +82,19 @@ class MyCobot:
         if not self.is_connected:
             raise ConnectionError()
 
-        #if self.teleop is None:
-        #    self.teleop = GamePadTeleop(robot_instance=False)
-        #    self.teleop.startup(robot=self)
+        #if self.joystick is None:
+        #    self.joystick = JoyStick()
+        #    self.joystick.start()
 
         before_read_t = time.perf_counter()
         state = self.get_state()
         action = self.mc.get_angles()
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
+        print(state, action)
 
+        # robot move is done outside so we just read the data
         #before_write_t = time.perf_counter()
-        #self.teleop.do_motion(robot=self)
-        #self.push_command()
+        #self.joystick.do_motion(action)
         #self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         if self.state_keys is None:
@@ -183,9 +184,8 @@ class MyCobot:
 
     def disconnect(self) -> None:
         #self.stop()
-        #if self.teleop is not None:
-        #    self.teleop.gamepad_controller.stop()
-        #    self.teleop.stop()
+        #if self.joystick is not None:
+        #    self.joystick.stop()
 
         if len(self.cameras) > 0:
             for cam in self.cameras.values():
