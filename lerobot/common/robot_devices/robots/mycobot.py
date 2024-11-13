@@ -25,14 +25,14 @@ from lerobot.common.robot_devices.cameras.utils import Camera
 
 @dataclass
 class MyCobotConfig:
-    robot_type: str | None = "stretch"
+    robot_type: str | None = "mycobot"
     cameras: dict[str, Camera] = field(default_factory=lambda: {})
     # TODO(aliberts): add feature with max_relative target
     # TODO(aliberts): add comment on max_relative target
     max_relative_target: list[float] | float | None = None
 
 
-class MyCobot:
+class MyCobot280:
     """Wrapper of stretch_body.robot.Robot"""
 
     def __init__(self, config: MyCobotConfig | None = None, **kwargs):
@@ -60,6 +60,8 @@ class MyCobot:
         if not self.is_connected:
             print("Can't connect to mycobot! ")
             raise ConnectionError()
+
+        print("mycobot connected")
 
         for name in self.cameras:
             self.cameras[name].connect()

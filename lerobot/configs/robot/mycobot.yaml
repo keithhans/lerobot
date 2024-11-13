@@ -1,5 +1,5 @@
 
-_target_: lerobot.common.robot_devices.robots.mycobot.MyCobot
+_target_: lerobot.common.robot_devices.robots.mycobot.MyCobot280
 robot_type: mycobot
 
 cameras:

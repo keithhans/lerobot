@@ -43,7 +43,7 @@ def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, f
     log_dt("dt", dt_s)
 
     # TODO(aliberts): move robot-specific logs logic in robot.print_logs()
-    if not robot.robot_type.startswith("stretch"):
+    if not robot.robot_type.startswith("stretch") and not robot.robot_type.startswith("mycobot"):
         for name in robot.leader_arms:
             key = f"read_leader_{name}_pos_dt_s"
             if key in robot.logs:
@@ -254,7 +254,6 @@ def control_loop(
     start_episode_t = time.perf_counter()
     while timestamp < control_time_s:
         start_loop_t = time.perf_counter()
-
         if teleoperate:
             observation, action = robot.teleop_step(record_data=True)
         else:
