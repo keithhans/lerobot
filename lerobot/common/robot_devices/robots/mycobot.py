@@ -55,7 +55,7 @@ class MyCobot280:
         self.action_keys = None
 
     def connect(self) -> None:
-        self.mc = MyCobot("/dev/ttyAMA0", 1000000)
+        self.mc = MyCobot("/dev/ttyAMA0", 1000000, debug=False)
         self.is_connected = self.mc is not None
         if not self.is_connected:
             print("Can't connect to mycobot! ")
