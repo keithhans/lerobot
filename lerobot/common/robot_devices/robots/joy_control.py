@@ -141,6 +141,7 @@ class JoyStick:
         self._lock = threading.Lock()
 
     def start(self):
+        self.global_states["origin"] = self.mc.get_coords()
         """Start joystick control threads"""
         self._input_thread = Thread(target=self._retreive_joystick_input)
         self._move_thread = Thread(target=self._continous_move)
