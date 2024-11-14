@@ -211,9 +211,9 @@ class JoyStick:
     def _blink_color(self, colors, delay=0.5):
         """Helper to blink robot LED colors"""
         for r,g,b in colors:
-            self.mc.set_color(r, g, b)
-            time.sleep(delay)
             self.mc.set_color(0, 0, 0)
+            time.sleep(delay)
+            self.mc.set_color(r, g, b)
             time.sleep(delay)
 
     def _continous_move(self):
