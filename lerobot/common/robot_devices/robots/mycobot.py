@@ -54,8 +54,17 @@ class MyCobot280:
         self.state_keys = None
         self.action_keys = None
 
+    @property
+    def has_camera(self):
+        return len(self.cameras) > 0
+
+    @property
+    def num_cameras(self):
+        return len(self.cameras)
+
     def connect(self) -> None:
         self.mc = MyCobot("/dev/ttyAMA0", 1000000, debug=False)
+        self.mc.set_fresh_mode(0)
         self.is_connected = self.mc is not None
         if not self.is_connected:
             print("Can't connect to mycobot! ")
@@ -90,12 +99,14 @@ class MyCobot280:
 
         before_read_t = time.perf_counter()
         state = self.get_state()
-        action = self.mc.get_angles()
-        while action == None:
-            time.sleep(0.001)
-            print("Can't get angles, sleep for 1ms...")
-            action = self.mc.get_angles()
-
+        action = [0, 0, 0, 0, 0, 0]
+        #action = self.mc.get_angles()
+        #count = 0
+        #while action == None:
+        #    time.sleep(0.1)
+        #    count += 1
+        #    action = self.mc.get_angles()
+        #print(f"get_angles retry count:{count}")
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(state, action)
 
