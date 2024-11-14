@@ -176,6 +176,20 @@ class JoyStick:
 
         # Handle movement keys
         if key in self.global_states["move_key_states"]:
+            if self.global_states["origin"] is None:
+                coords = []
+                for _ in range(5):
+                    coords = self.mc.get_coords()
+                    # print(f"dispatch coords:{coords}")
+                    if len(coords) != 0:
+                        break
+
+                if len(coords) != 0:
+                    self.global_states["origin"] = coords
+                else:
+                    print("Can't get coords.")
+                    return   
+            
             if is_zero(value):
                 self.global_states["move_key_states"][key] = 0
             else:
@@ -228,16 +242,8 @@ class JoyStick:
                 continue
 
             if self.global_states["origin"] is None:
-                coords = []
-                for _ in range(5):
-                    coords = self.mc.get_coords()
-                    if coords:
-                        break
-                if coords:
-                    self.global_states["origin"] = coords
-                else:
-                    time.sleep(0.05)
-                    continue
+                time.sleep(0.05)
+                continue
 
             moving = False
             for key, value in self.global_states["move_key_states"].items():
