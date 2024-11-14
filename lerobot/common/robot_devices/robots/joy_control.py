@@ -5,6 +5,8 @@ from threading import Thread
 from enum import Enum
 import typing as T
 import platform
+import threading
+from copy import deepcopy
 
 if "linux" in platform.platform().lower():
     import RPi.GPIO as GPIO
@@ -136,6 +138,7 @@ class JoyStick:
 
         self._input_thread = None
         self._move_thread = None
+        self._lock = threading.Lock()
 
     def start(self):
         """Start joystick control threads"""
@@ -180,12 +183,12 @@ class JoyStick:
                 coords = []
                 for _ in range(5):
                     coords = self.mc.get_coords()
-                    # print(f"dispatch coords:{coords}")
                     if len(coords) != 0:
                         break
 
                 if len(coords) != 0:
-                    self.global_states["origin"] = coords
+                    with self._lock:
+                        self.global_states["origin"] = coords
                 else:
                     print("Can't get coords.")
                     return   
@@ -258,25 +261,26 @@ class JoyStick:
 
     def _update_coordinates(self, key, value, ratio):
         """Update target coordinates based on joystick input"""
-        if self.global_states["origin"] is None:
-            return
-            
-        if key == JoyStickContinous.LeftXAxis:
-            self.global_states["origin"][1] -= value * ratio * 2
-        elif key == JoyStickContinous.LeftYAxis:
-            self.global_states["origin"][0] -= value * ratio * 2
-        elif key == JoyStickContinous.RightYAxis:
-            self.global_states["origin"][2] -= value * ratio
-        elif key == JoyStickContinous.RightXAxis:
-            self.global_states["origin"][5] -= value * ratio
-        elif key == JoyStickKey.ArrowUp:
-            self.global_states["origin"][3] += 1
-        elif key == JoyStickKey.ArrowDown:
-            self.global_states["origin"][3] -= 1
-        elif key == JoyStickKey.ArrowRight:
-            self.global_states["origin"][4] -= 1
-        elif key == JoyStickKey.ArrowLeft:
-            self.global_states["origin"][4] += 1
+        with self._lock:
+            if self.global_states["origin"] is None:
+                return
+                
+            if key == JoyStickContinous.LeftXAxis:
+                self.global_states["origin"][1] -= value * ratio * 2
+            elif key == JoyStickContinous.LeftYAxis:
+                self.global_states["origin"][0] -= value * ratio * 2
+            elif key == JoyStickContinous.RightYAxis:
+                self.global_states["origin"][2] -= value * ratio
+            elif key == JoyStickContinous.RightXAxis:
+                self.global_states["origin"][5] -= value * ratio
+            elif key == JoyStickKey.ArrowUp:
+                self.global_states["origin"][3] += 1
+            elif key == JoyStickKey.ArrowDown:
+                self.global_states["origin"][3] -= 1
+            elif key == JoyStickKey.ArrowRight:
+                self.global_states["origin"][4] -= 1
+            elif key == JoyStickKey.ArrowLeft:
+                self.global_states["origin"][4] += 1
 
     def _retreive_joystick_input(self):
         """Main joystick input processing loop"""
@@ -298,6 +302,17 @@ class JoyStick:
                         self._dispatch_key_action(joystick_continous_map[key_id], axis)
                 elif event.type == pygame.JOYHATMOTION:
                     self._dispatch_key_action(joystick_key_map[self.joystick.get_hat(0)], 1.0)
+
+    def get_current_coords(self) -> list[float] | None:
+        """Get current target coordinates in a thread-safe way
+        
+        Returns:
+            list[float] | None: Current coordinates [x,y,z,rx,ry,rz] or None if not initialized
+        """
+        with self._lock:
+            if self.global_states["origin"] is None:
+                return None
+            return deepcopy(self.global_states["origin"])
 
 def main():
     """Standalone operation"""
