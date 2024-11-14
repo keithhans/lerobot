@@ -132,7 +132,7 @@ class MyCobot280:
         return obs_dict, action_dict
 
     def get_state(self) -> dict:
-        coords = self.mc.get_coords()
+        coords = self.joystick.get_current_coords()
         while coords == None:
             print("Can't get coords, sleep for 1ms...")
             time.sleep(0.001)
