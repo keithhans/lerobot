@@ -21,7 +21,7 @@ import torch
 
 from pymycobot import MyCobot
 from lerobot.common.robot_devices.cameras.utils import Camera
-
+from lerobot.common.robot_devices.robots.joy_control import JoyStick
 
 @dataclass
 class MyCobotConfig:
@@ -45,7 +45,7 @@ class MyCobot280:
         self.robot_type = self.config.robot_type
         self.cameras = self.config.cameras
         self.is_connected = False
-        #self.joystick = None
+        self.joystick = None
         self.logs = {}
 
         self.mc = None
@@ -84,13 +84,18 @@ class MyCobot280:
         if not self.is_connected:
             raise ConnectionError()
 
-        #if self.joystick is None:
-        #    self.joystick = JoyStick()
-        #    self.joystick.start()
+        if self.joystick is None:
+            self.joystick = JoyStick(self.mc)
+            self.joystick.start()
 
         before_read_t = time.perf_counter()
         state = self.get_state()
         action = self.mc.get_angles()
+        while action == None:
+            time.sleep(0.001)
+            print("Can't get angles, sleep for 1ms...")
+            action = self.mc.get_angles()
+
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(state, action)
 
@@ -128,6 +133,10 @@ class MyCobot280:
 
     def get_state(self) -> dict:
         coords = self.mc.get_coords()
+        while coords == None:
+            print("Can't get coords, sleep for 1ms...")
+            time.sleep(0.001)
+            coords = self.mc.get_coords()
         return {
             "x": coords[0],
             "y": coords[1],
@@ -186,8 +195,8 @@ class MyCobot280:
 
     def disconnect(self) -> None:
         #self.stop()
-        #if self.joystick is not None:
-        #    self.joystick.stop()
+        if self.joystick is not None:
+            self.joystick.stop()
 
         if len(self.cameras) > 0:
             for cam in self.cameras.values():
