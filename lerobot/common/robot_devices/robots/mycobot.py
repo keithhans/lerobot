@@ -143,38 +143,10 @@ class MyCobot280:
         before_read_t = time.perf_counter()
         state = self.get_state()
 
-        # get_angles will make the robot jitter!!!
-        # as a workraound, use ik to get the angles
-        position = np.array([state['x'] / 1000, 
-            state['y'] / 1000, 
-            state['z'] / 1000])
-        rpy = [state['rx'] / 180 * np.pi,
-            state['ry'] / 180 * np.pi,
-            state['rz'] / 180 * np.pi]
-        q, converged = ik(self.model, self.data, 
-            np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129]), position, rpy)
-
+        # Temporarily use zeros for action, IK will be calculated later
         action = [0, 0, 0, 0, 0, 0]
-        if converged:
-            for i in range(6):
-                action[i] = q[i] / np.pi * 180
-        else:
-            print(f"ik didn't converge! pos:{position} rpy:{rpy}")
-            
-        #action = self.mc.get_angles()
-        #count = 0
-        #while action == None:
-        #    time.sleep(0.1)
-        #    count += 1
-        #    action = self.mc.get_angles()
-        #print(f"get_angles retry count:{count}")
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(self.logs["read_pos_dt_s"], state, action)
-
-        # robot move is done outside so we just read the data
-        #before_write_t = time.perf_counter()
-        #self.joystick.do_motion(action)
-        #self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         if self.state_keys is None:
             self.state_keys = list(state)

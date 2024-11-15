@@ -14,6 +14,7 @@ import cv2
 import torch
 import tqdm
 from termcolor import colored
+import numpy as np
 
 from lerobot.common.datasets.populate_dataset import add_frame, safe_stop_image_writer
 from lerobot.common.policies.factory import make_policy
@@ -207,6 +208,7 @@ def record_episode(
     use_amp,
     fps,
 ):
+    # Run control loop first
     control_loop(
         robot=robot,
         control_time_s=episode_time_s,
@@ -219,6 +221,31 @@ def record_episode(
         fps=fps,
         teleoperate=policy is None,
     )
+
+    # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
+    if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
+        # Update actions in dataset using IK
+        for frame in dataset['frames']:
+            state = frame['observation.state']
+            # Convert state tensor to position and rpy
+            position = np.array([state[0]/1000, state[1]/1000, state[2]/1000])
+            rpy = [state[3]/180*3.14159, state[4]/180*3.14159, state[5]/180*3.14159]
+            
+            # Calculate IK
+            q, converged = robot.ik(
+                robot.model, 
+                robot.data,
+                np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129]),  # Initial guess
+                position,
+                rpy
+            )
+            
+            if converged:
+                # Convert joint angles to degrees
+                action = torch.tensor([angle/3.14159*180 for angle in q])
+                frame['action'] = action
+            else:
+                print(f"Warning: IK didn't converge for state: {state}")
 
 
 @safe_stop_image_writer
