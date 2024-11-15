@@ -142,12 +142,19 @@ class MyCobot280:
 
         return obs_dict, action_dict
 
-    def get_state(self) -> dict:
-        coords = self.joystick.get_current_coords()
-        while coords == None:
-            print("Can't get coords, sleep for 1ms...")
-            time.sleep(0.001)
+    def get_state(self, use_robot_data = False) -> dict:
+        coords = None
+        if use_robot_data:
             coords = self.mc.get_coords()
+        else:
+            coords = self.joystick.get_current_coords()
+        while coords == None:
+            print("Can't get coords, sleep for 10ms...")
+            time.sleep(0.01)
+            if use_robot_data:
+                coords = self.mc.get_coords()
+            else:
+                coords = self.joystick.get_current_coords()
         return {
             "x": coords[0],
             "y": coords[1],
@@ -160,7 +167,7 @@ class MyCobot280:
     def capture_observation(self) -> dict:
         # TODO(aliberts): return ndarrays instead of torch.Tensors
         before_read_t = time.perf_counter()
-        state = self.get_state()
+        state = self.get_state(True)
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
 
         if self.state_keys is None:
