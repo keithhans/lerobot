@@ -237,12 +237,10 @@ def record_episode(
         for state in state_list:
             # Convert state tensor to position and rpy
             position = np.array([state[0]/1000, state[1]/1000, state[2]/1000])
-            rpy = [state[3]/180*3.14159, state[4]/180*3.14159, state[5]/180*3.14159]
+            rpy = np.array([state[3]/180*3.14159, state[4]/180*3.14159, state[5]/180*3.14159]).tolist()
             
             # Calculate IK
             q, converged = robot.ik(
-                robot.model, 
-                robot.data,
                 np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129]),  # Initial guess
                 position,
                 rpy

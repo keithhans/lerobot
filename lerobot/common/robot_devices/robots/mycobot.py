@@ -28,33 +28,7 @@ import numpy as np
 
 
 
-def ik(model, data, q_init, target_position, target_rpy=None):
-    JOINT_ID = 6
-    eps = 1e-4
-    IT_MAX = 1000
-    DT = 1e-1
-    damp = 1e-12
 
-    if target_rpy is None:
-        target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
-    target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
-    oMdes = pin.SE3(target_rotation, target_position)
-    q = q_init.copy()
-    i = 0
-    while True:
-        pin.forwardKinematics(model, data, q)
-        iMd = data.oMi[JOINT_ID].actInv(oMdes)
-        err = pin.log(iMd).vector
-        if np.linalg.norm(err) < eps:
-            return np.array(q), True  # Converged successfully
-        if i >= IT_MAX:
-            print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
-            return np.array(q), False  # Did not converge
-        J = pin.computeJointJacobian(model, data, q, JOINT_ID)
-        J = -np.dot(pin.Jlog6(iMd.inverse()), J)
-        v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
-        q = pin.integrate(model, q, v * DT)
-        i += 1
 
 
 @dataclass
@@ -128,6 +102,34 @@ class MyCobot280:
     def run_calibration(self) -> None:
         pass
         #    self.home()
+
+    def ik(self, q_init, target_position, target_rpy=None):
+        JOINT_ID = 6
+        eps = 1e-4
+        IT_MAX = 1000
+        DT = 1e-1
+        damp = 1e-12
+
+        if target_rpy is None:
+            target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
+        target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
+        oMdes = pin.SE3(target_rotation, target_position)
+        q = q_init.copy()
+        i = 0
+        while True:
+            pin.forwardKinematics(self.model, self.data, q)
+            iMd = self.data.oMi[JOINT_ID].actInv(oMdes)
+            err = pin.log(iMd).vector
+            if np.linalg.norm(err) < eps:
+                return np.array(q), True  # Converged successfully
+            if i >= IT_MAX:
+                print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
+                return np.array(q), False  # Did not converge
+            J = pin.computeJointJacobian(self.model, self.data, q, JOINT_ID)
+            J = -np.dot(pin.Jlog6(iMd.inverse()), J)
+            v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
+            q = pin.integrate(self.model, q, v * DT)
+            i += 1
 
     def teleop_step(
         self, record_data=False
