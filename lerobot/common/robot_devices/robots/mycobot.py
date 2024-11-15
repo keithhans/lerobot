@@ -190,11 +190,11 @@ class MyCobot280:
         if not self.is_connected:
             raise ConnectionError()
 
-        # convert action to coords
-        coords = [action[0], action[1], action[2], action[3], action[4], action[5]]
+        # convert action to angles
+        angles = [action[0], action[1], action[2], action[3], action[4], action[5]]
 
         before_write_t = time.perf_counter()
-        self.mc.send_coords(coords, 50, 1)
+        self.mc.send_angles(angles, 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         # TODO(aliberts): return action_sent when motion is limited
