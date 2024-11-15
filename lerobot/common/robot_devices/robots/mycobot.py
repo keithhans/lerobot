@@ -23,6 +23,40 @@ from pymycobot import MyCobot
 from lerobot.common.robot_devices.cameras.utils import Camera
 from lerobot.common.robot_devices.robots.joy_control import JoyStick
 
+import pinocchio as pin
+import numpy as np
+
+
+
+def ik(model, data, q_init, target_position, target_rpy=None):
+    JOINT_ID = 6
+    eps = 1e-4
+    IT_MAX = 1000
+    DT = 1e-1
+    damp = 1e-12
+
+    if target_rpy is None:
+        target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
+    target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
+    oMdes = pin.SE3(target_rotation, target_position)
+    q = q_init.copy()
+    i = 0
+    while True:
+        pin.forwardKinematics(model, data, q)
+        iMd = data.oMi[JOINT_ID].actInv(oMdes)
+        err = pin.log(iMd).vector
+        if np.linalg.norm(err) < eps:
+            return np.array(q), True  # Converged successfully
+        if i >= IT_MAX:
+            print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
+            return np.array(q), False  # Did not converge
+        J = pin.computeJointJacobian(model, data, q, JOINT_ID)
+        J = -np.dot(pin.Jlog6(iMd.inverse()), J)
+        v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
+        q = pin.integrate(model, q, v * DT)
+        i += 1
+
+
 @dataclass
 class MyCobotConfig:
     robot_type: str | None = "mycobot"
@@ -53,6 +87,11 @@ class MyCobot280:
 
         self.state_keys = None
         self.action_keys = None
+        
+        self.model = None
+        self.data = None
+
+
 
     @property
     def has_camera(self):
@@ -80,6 +119,10 @@ class MyCobot280:
             print("Could not connect to the cameras, check that all cameras are plugged-in.")
             raise ConnectionError()
 
+        urdf_filename = "lerobot/common/robot_devices/robots/mycobot_280_pi.urdf"
+        self.model = pin.buildModelFromUrdf(urdf_filename)
+        self.data = self.model.createData()
+
         self.run_calibration()
 
     def run_calibration(self) -> None:
@@ -99,7 +142,25 @@ class MyCobot280:
 
         before_read_t = time.perf_counter()
         state = self.get_state()
+
+        # get_angles will make the robot jitter!!!
+        # as a workraound, use ik to get the angles
+        position = np.array([state['x'] / 1000, 
+            state['y'] / 1000, 
+            state['z'] / 1000])
+        rpy = [state['rx'] / 180 * np.pi,
+            state['ry'] / 180 * np.pi,
+            state['rz'] / 180 * np.pi]
+        q, converged = ik(self.model, self.data, 
+            np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), position, rpy)
+
         action = [0, 0, 0, 0, 0, 0]
+        if converged:
+            for i in range(6):
+                action[i] = q[i] / np.pi * 180
+        else:
+            print(f"ik didn't converge! pos:{position} rpy:{rpy}")
+            
         #action = self.mc.get_angles()
         #count = 0
         #while action == None:
