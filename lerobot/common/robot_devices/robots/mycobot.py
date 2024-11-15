@@ -152,7 +152,7 @@ class MyCobot280:
             state['ry'] / 180 * np.pi,
             state['rz'] / 180 * np.pi]
         q, converged = ik(self.model, self.data, 
-            np.array([0.2, -0.6, -1.7, 0.8, 0, 0.2]), position, rpy)
+            np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129]), position, rpy)
 
         action = [0, 0, 0, 0, 0, 0]
         if converged:
@@ -169,7 +169,7 @@ class MyCobot280:
         #    action = self.mc.get_angles()
         #print(f"get_angles retry count:{count}")
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
-        print(state, action)
+        print(self.logs["read_pos_dt_s"], state, action)
 
         # robot move is done outside so we just read the data
         #before_write_t = time.perf_counter()
