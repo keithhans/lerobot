@@ -224,9 +224,17 @@ def record_episode(
 
     # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
     if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
-        # Update actions in dataset using IK
-        for frame in dataset['frames']:
-            state = frame['observation.state']
+        # Get the current episode data
+        if "current_episode" not in dataset:
+            print(f"current_episode not in dataset {dataset}]")
+            return
+            
+        ep_dict = dataset["current_episode"]
+        state_list = ep_dict["observation.state"]
+        
+        # Calculate IK for each frame
+        actions = []
+        for state in state_list:
             # Convert state tensor to position and rpy
             position = np.array([state[0]/1000, state[1]/1000, state[2]/1000])
             rpy = [state[3]/180*3.14159, state[4]/180*3.14159, state[5]/180*3.14159]
@@ -243,9 +251,15 @@ def record_episode(
             if converged:
                 # Convert joint angles to degrees
                 action = torch.tensor([angle/3.14159*180 for angle in q])
-                frame['action'] = action
+                actions.append(action)
             else:
                 print(f"Warning: IK didn't converge for state: {state}")
+                # Use previous action or zeros if no previous action
+                action = actions[-1] if actions else torch.zeros(6)
+                actions.append(action)
+        
+        # Update the actions in the current episode
+        ep_dict["action"] = actions
 
 
 @safe_stop_image_writer
