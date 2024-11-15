@@ -212,7 +212,7 @@ def record(
     num_image_writer_processes=0,
     num_image_writer_threads_per_camera=4,
     force_override=False,
-    display_cameras=True,
+    display_cameras=False,
     play_sounds=True,
 ):
     # TODO(rcadene): Add option to record logs
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     base_parser.add_argument(
         "--robot-path",
         type=str,
-        default="lerobot/configs/robot/koch.yaml",
+        default="lerobot/configs/robot/mycobot.yaml",
         help="Path to robot yaml file used to instantiate the robot using `make_robot` factory function.",
     )
     base_parser.add_argument(
