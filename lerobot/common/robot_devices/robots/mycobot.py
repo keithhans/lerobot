@@ -146,7 +146,7 @@ class MyCobot280:
         state = self.get_state()
 
         # Temporarily use zeros for action, IK will be calculated later
-        action = [0, 0, 0, 0, 0, 0]
+        action = [0, 0, 0, 0, 0, 0, state["gripper"]]
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(self.logs["read_pos_dt_s"], state, action)
 
@@ -179,17 +179,22 @@ class MyCobot280:
 
     def get_state(self, use_robot_data = False) -> dict:
         coords = None
+        gripper_value = None
         if use_robot_data:
             coords = self.mc.get_coords()
+            gripper_value = self.mc.get_gripper_value()
         else:
             coords = self.joystick.get_current_coords()
+            gripper_value = self.joystick.get_gripper_value()
         while coords == None:
             print("Can't get coords, sleep for 10ms...")
             time.sleep(0.01)
             if use_robot_data:
                 coords = self.mc.get_coords()
+                gripper_value = self.mc.get_gripper_value()
             else:
                 coords = self.joystick.get_current_coords()
+                gripper_value = self.joystick.get_gripper_value()                
         return {
             "x": coords[0],
             "y": coords[1],
@@ -197,6 +202,7 @@ class MyCobot280:
             "rx": coords[3],
             "ry": coords[4],
             "rz": coords[5],
+            "gripper": gripper_value,
         }
 
     def capture_observation(self) -> dict:
@@ -237,6 +243,7 @@ class MyCobot280:
 
         before_write_t = time.perf_counter()
         self.mc.send_angles(angles, 50)
+        self.mc.set_gripper_value(action[6], 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         # TODO(aliberts): return action_sent when motion is limited

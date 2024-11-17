@@ -142,6 +142,7 @@ class JoyStick:
 
     def start(self):
         self.global_states["origin"] = self.mc.get_coords()
+        self.global_states["gripper_val"] = self.mc.get_gripper_value()
         """Start joystick control threads"""
         self._input_thread = Thread(target=self._retreive_joystick_input)
         self._move_thread = Thread(target=self._continous_move)
@@ -216,10 +217,10 @@ class JoyStick:
 
         # Handle tool controls
         if key == JoyStickKey.RLeftKey:
-            self.global_states["gripper_val"] = min(100, self.global_states["gripper_val"] + 5)
+            self.global_states["gripper_val"] = min(100, self.global_states["gripper_val"] + 2)
             self.mc.set_gripper_value(self.global_states["gripper_val"], 50)
         elif key == JoyStickKey.RTopKey:
-            self.global_states["gripper_val"] = max(20, self.global_states["gripper_val"] - 5)
+            self.global_states["gripper_val"] = max(20, self.global_states["gripper_val"] - 2)
             self.mc.set_gripper_value(self.global_states["gripper_val"], 50)
         elif key == JoyStickKey.RBottomKey:
             pump_on()
@@ -314,6 +315,9 @@ class JoyStick:
             if self.global_states["origin"] is None:
                 return None
             return deepcopy(self.global_states["origin"])
+
+    def get_gripper_value(self) -> float:
+        return self.global_states["gripper_val"]
 
 def main():
     """Standalone operation"""
