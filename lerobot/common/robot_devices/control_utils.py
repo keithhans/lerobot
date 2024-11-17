@@ -247,13 +247,13 @@ def record_episode(
             )
             
             if converged:
-                # Convert joint angles to degrees
-                action = torch.tensor([angle/3.14159*180 for angle in q])
+                # Convert joint angles to degrees and add gripper value
+                action = torch.tensor([angle/3.14159*180 for angle in q] + [state[6]])  # Add gripper value
                 actions.append(action)
             else:
                 print(f"Warning: IK didn't converge for state: {state}")
                 # Use previous action or zeros if no previous action
-                action = actions[-1] if actions else torch.zeros(6)
+                action = actions[-1] if actions else torch.zeros(7)  # 6 joints + gripper
                 actions.append(action)
         
         # Update the actions in the current episode
