@@ -47,13 +47,29 @@ def convert_lists_to_tensors(dataset):
     """Convert list data to tensors in the dataset"""
     def to_tensor(x):
         if isinstance(x, list):
-            return torch.tensor(x)
+            try:
+                return torch.tensor(x, dtype=torch.float32)
+            except:
+                return x
         return x
 
+    # First get all the columns that need conversion
+    sample = dataset[0]
+    columns_to_convert = [k for k, v in sample.items() if isinstance(v, list)]
+    
+    # Only convert numeric columns
     converted_dataset = dataset.map(
-        lambda x: {k: to_tensor(v) for k, v in x.items()},
-        remove_columns=dataset.column_names
+        lambda x: {k: to_tensor(v) if k in columns_to_convert else v 
+                  for k, v in x.items()},
+        remove_columns=columns_to_convert,
+        desc="Converting lists to tensors"
     )
+    
+    # Add converted columns back
+    for col in columns_to_convert:
+        converted_dataset = converted_dataset.add_column(col, 
+            [to_tensor(x[col]) for x in dataset])
+
     return converted_dataset
 
 
