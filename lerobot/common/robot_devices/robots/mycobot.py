@@ -239,11 +239,12 @@ class MyCobot280:
             raise ConnectionError()
 
         # convert action to angles
-        angles = [action[0], action[1], action[2], action[3], action[4], action[5]]
+        angles = action[:6].tolist()
 
         before_write_t = time.perf_counter()
         self.mc.send_angles(angles, 50)
-        self.mc.set_gripper_value(action[6], 50)
+        print("action:", angles, action[6].item())
+        self.mc.set_gripper_value(int(action[6].item()), 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         # TODO(aliberts): return action_sent when motion is limited
