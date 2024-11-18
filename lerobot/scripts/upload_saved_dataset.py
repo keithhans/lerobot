@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from datasets import load_from_disk
+import torch
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
 from lerobot.common.datasets.populate_dataset import push_lerobot_dataset_to_hub
 from lerobot.common.datasets.compute_stats import compute_stats
@@ -42,6 +43,20 @@ def parse_args():
     return parser.parse_args()
 
 
+def convert_lists_to_tensors(dataset):
+    """Convert list data to tensors in the dataset"""
+    def to_tensor(x):
+        if isinstance(x, list):
+            return torch.tensor(x)
+        return x
+
+    converted_dataset = dataset.map(
+        lambda x: {k: to_tensor(v) for k, v in x.items()},
+        remove_columns=dataset.column_names
+    )
+    return converted_dataset
+
+
 def main():
     args = parse_args()
     
@@ -53,6 +68,10 @@ def main():
     # Load the saved dataset
     print(f"Loading dataset from {local_dir}...")
     hf_dataset = load_from_disk(str(local_dir / "train"))
+    
+    # Convert lists to tensors
+    print("Converting lists to tensors...")
+    hf_dataset = convert_lists_to_tensors(hf_dataset)
     
     # Load metadata
     meta_data_dir = local_dir / "meta_data"
