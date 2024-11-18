@@ -1,3 +1,5 @@
+# @package _global_
+
 fps: 20
 
 env:
