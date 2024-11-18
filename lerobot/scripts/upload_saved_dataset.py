@@ -8,6 +8,9 @@ from pathlib import Path
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.populate_dataset import push_lerobot_dataset_to_hub
 from lerobot.common.datasets.compute_stats import compute_stats
+from lerobot.common.datasets.utils import flatten_dict
+
+from safetensors.torch import save_file
 
 
 def parse_args():
@@ -63,6 +66,9 @@ def main():
     if args.compute_stats:
         print("Computing dataset statistics...")
         lerobot_dataset.stats = compute_stats(lerobot_dataset)
+        # save stats
+        stats_path = meta_data_dir / "stats.safetensors"
+        save_file(flatten_dict(lerobot_dataset.stats), stats_path)
 
     # Push to hub
     print(f"Pushing dataset to hub as {args.repo_id}...")
