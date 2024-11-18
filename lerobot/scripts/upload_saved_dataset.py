@@ -3,15 +3,14 @@
 """Script to upload a previously saved dataset to the Hugging Face Hub."""
 
 import argparse
+import json
 from pathlib import Path
 
 from datasets import load_from_disk
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.common.datasets.populate_dataset import (
-    push_lerobot_dataset_to_hub,
-    from_dataset_to_lerobot_dataset,
-)
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
+from lerobot.common.datasets.populate_dataset import push_lerobot_dataset_to_hub
 from lerobot.common.datasets.compute_stats import compute_stats
+from lerobot.common.datasets.utils import calculate_episode_data_index
 
 
 def parse_args():
@@ -60,13 +59,28 @@ def main():
     if not meta_data_dir.exists():
         raise ValueError(f"Metadata directory not found at {meta_data_dir}")
 
+    # Load info.json
+    with open(meta_data_dir / "info.json", "r") as f:
+        info = json.load(f)
+
+    # Load episode_data_index.json if it exists
+    episode_data_index_path = meta_data_dir / "episode_data_index.json"
+    if episode_data_index_path.exists():
+        with open(episode_data_index_path, "r") as f:
+            episode_data_index = json.load(f)
+    else:
+        print("Computing episode data index...")
+        episode_data_index = calculate_episode_data_index(hf_dataset)
+
     # Create LeRobotDataset instance
     videos_dir = local_dir / "videos"
-    lerobot_dataset = LeRobotDataset(
+    lerobot_dataset = LeRobotDataset.from_preloaded(
         repo_id=args.repo_id,
+        hf_dataset=hf_dataset,
+        episode_data_index=episode_data_index,
+        info=info,
         videos_dir=videos_dir,
     )
-    lerobot_dataset.hf_dataset = hf_dataset
 
     # Compute statistics if requested
     if args.compute_stats:
