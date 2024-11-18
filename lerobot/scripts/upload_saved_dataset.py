@@ -8,6 +8,7 @@ from pathlib import Path
 
 from datasets import load_from_disk
 import torch
+import numpy as np
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
 from lerobot.common.datasets.populate_dataset import push_lerobot_dataset_to_hub
 from lerobot.common.datasets.compute_stats import compute_stats
@@ -44,31 +45,21 @@ def parse_args():
 
 
 def convert_lists_to_tensors(dataset):
-    """Convert list data to tensors in the dataset"""
+    """Convert only observation.state and action lists to tensors"""
     def to_tensor(x):
         if isinstance(x, list):
-            try:
-                return torch.tensor(x, dtype=torch.float32)
-            except:
-                return x
+            return torch.tensor(x, dtype=torch.float32).numpy()
         return x
 
-    # First get all the columns that need conversion
-    sample = dataset[0]
-    columns_to_convert = [k for k, v in sample.items() if isinstance(v, list)]
-    
-    # Only convert numeric columns
+    # Only convert observation.state and action
     converted_dataset = dataset.map(
-        lambda x: {k: to_tensor(v) if k in columns_to_convert else v 
-                  for k, v in x.items()},
-        remove_columns=columns_to_convert,
+        lambda x: {
+            **x,
+            "observation.state": to_tensor(x["observation.state"]),
+            "action": to_tensor(x["action"])
+        },
         desc="Converting lists to tensors"
     )
-    
-    # Add converted columns back
-    for col in columns_to_convert:
-        converted_dataset = converted_dataset.add_column(col, 
-            [to_tensor(x[col]) for x in dataset])
 
     return converted_dataset
 
