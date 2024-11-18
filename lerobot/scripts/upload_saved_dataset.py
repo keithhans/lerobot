@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from datasets import load_from_disk
+from datasets import load_from_disk, Sequence, Value
 import torch
 import numpy as np
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
@@ -48,7 +48,7 @@ def convert_lists_to_tensors(dataset):
     """Convert only observation.state and action lists to tensors"""
     def to_tensor(x):
         if isinstance(x, list):
-            return torch.tensor(x, dtype=torch.float32).numpy()
+            return torch.tensor(x, dtype=torch.float32)
         return x
 
     # Only convert observation.state and action
@@ -58,7 +58,12 @@ def convert_lists_to_tensors(dataset):
             "observation.state": to_tensor(x["observation.state"]),
             "action": to_tensor(x["action"])
         },
-        desc="Converting lists to tensors"
+        desc="Converting lists to tensors",
+        # Add features to specify the expected types
+        features={
+            "observation.state": Sequence(feature=Value(dtype="float32"), length=7),
+            "action": Sequence(feature=Value(dtype="float32"), length=7),
+        }
     )
 
     return converted_dataset
