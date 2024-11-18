@@ -3,16 +3,11 @@
 """Script to upload a previously saved dataset to the Hugging Face Hub."""
 
 import argparse
-import json
 from pathlib import Path
 
-from datasets import load_from_disk, Sequence, Value, Features
-import torch
-import numpy as np
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from lerobot.common.datasets.populate_dataset import push_lerobot_dataset_to_hub
 from lerobot.common.datasets.compute_stats import compute_stats
-from lerobot.common.datasets.utils import calculate_episode_data_index
 
 
 def parse_args():
@@ -44,95 +39,31 @@ def parse_args():
     return parser.parse_args()
 
 
-def convert_lists_to_tensors(dataset):
-    """Convert only observation.state and action lists to tensors"""
-    def to_tensor(x):
-        if isinstance(x, list):
-            return torch.tensor(x, dtype=torch.float32)
-        return x
-
-    # Create complete features dictionary
-    features = {
-        "observation.state": Sequence(feature=Value(dtype="float32"), length=7),
-        "action": Sequence(feature=Value(dtype="float32"), length=7),
-        "observation.images.head": dataset.features["observation.images.head"],
-        "observation.images.wrist": dataset.features["observation.images.wrist"],
-        "episode_index": Value(dtype="int64"),
-        "frame_index": Value(dtype="int64"),
-        "timestamp": Value(dtype="float32"),
-        "next.done": Value(dtype="bool"),
-        "index": Value(dtype="int64"),
-    }
-
-    # Only convert observation.state and action
-    converted_dataset = dataset.map(
-        lambda x: {
-            **x,
-            "observation.state": to_tensor(x["observation.state"]),
-            "action": to_tensor(x["action"])
-        },
-        desc="Converting lists to tensors",
-        features=Features(features)  # Wrap features in Features class
-    )
-
-    # Debug: verify conversion
-    sample = converted_dataset[0]
-    print("\nVerifying tensor conversion:")
-    print(f"observation.state: {type(sample['observation.state'])} - {sample['observation.state'].dtype}")
-    print(f"action: {type(sample['action'])} - {sample['action'].dtype}")
-
-    return converted_dataset
-
-
 def main():
     args = parse_args()
-    
+
     # Construct paths
     local_dir = Path(args.root) / args.repo_id
     if not local_dir.exists():
         raise ValueError(f"Dataset directory not found at {local_dir}")
 
-    # Load the saved dataset
-    print(f"Loading dataset from {local_dir}...")
-    hf_dataset = load_from_disk(str(local_dir / "train"))
-    
-    # Convert lists to tensors
-    print("Converting lists to tensors...")
-    hf_dataset = convert_lists_to_tensors(hf_dataset)
-    
     # Load metadata
     meta_data_dir = local_dir / "meta_data"
     if not meta_data_dir.exists():
         raise ValueError(f"Metadata directory not found at {meta_data_dir}")
 
-    # Load info.json
-    with open(meta_data_dir / "info.json", "r") as f:
-        info = json.load(f)
-
-    # Load episode_data_index.json if it exists
-    episode_data_index_path = meta_data_dir / "episode_data_index.json"
-    if episode_data_index_path.exists():
-        with open(episode_data_index_path, "r") as f:
-            episode_data_index = json.load(f)
-    else:
-        print("Computing episode data index...")
-        episode_data_index = calculate_episode_data_index(hf_dataset)
-
     # Create LeRobotDataset instance
-    videos_dir = local_dir / "videos"
-    lerobot_dataset = LeRobotDataset.from_preloaded(
+    print(f"Loading dataset from {local_dir}...")
+    lerobot_dataset = LeRobotDataset(
         repo_id=args.repo_id,
-        hf_dataset=hf_dataset,
-        episode_data_index=episode_data_index,
-        info=info,
-        videos_dir=videos_dir,
+        root=args.root,
     )
 
     # Compute statistics if requested
     if args.compute_stats:
         print("Computing dataset statistics...")
         lerobot_dataset.stats = compute_stats(lerobot_dataset)
-    
+
     # Push to hub
     print(f"Pushing dataset to hub as {args.repo_id}...")
     push_lerobot_dataset_to_hub(lerobot_dataset, tags=args.tags)
