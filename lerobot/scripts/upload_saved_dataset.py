@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from datasets import load_from_disk, Sequence, Value
+from datasets import load_from_disk, Sequence, Value, Features
 import torch
 import numpy as np
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, CODEBASE_VERSION
@@ -51,6 +51,19 @@ def convert_lists_to_tensors(dataset):
             return torch.tensor(x, dtype=torch.float32)
         return x
 
+    # Create complete features dictionary
+    features = {
+        "observation.state": Sequence(feature=Value(dtype="float32"), length=7),
+        "action": Sequence(feature=Value(dtype="float32"), length=7),
+        "observation.images.head": dataset.features["observation.images.head"],
+        "observation.images.wrist": dataset.features["observation.images.wrist"],
+        "episode_index": Value(dtype="int64"),
+        "frame_index": Value(dtype="int64"),
+        "timestamp": Value(dtype="float32"),
+        "next.done": Value(dtype="bool"),
+        "index": Value(dtype="int64"),
+    }
+
     # Only convert observation.state and action
     converted_dataset = dataset.map(
         lambda x: {
@@ -59,12 +72,14 @@ def convert_lists_to_tensors(dataset):
             "action": to_tensor(x["action"])
         },
         desc="Converting lists to tensors",
-        # Add features to specify the expected types
-        features={
-            "observation.state": Sequence(feature=Value(dtype="float32"), length=7),
-            "action": Sequence(feature=Value(dtype="float32"), length=7),
-        }
+        features=Features(features)  # Wrap features in Features class
     )
+
+    # Debug: verify conversion
+    sample = converted_dataset[0]
+    print("\nVerifying tensor conversion:")
+    print(f"observation.state: {type(sample['observation.state'])} - {sample['observation.state'].dtype}")
+    print(f"action: {type(sample['action'])} - {sample['action'].dtype}")
 
     return converted_dataset
 
