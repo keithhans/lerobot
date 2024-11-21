@@ -65,6 +65,8 @@ class MyCobot280:
         self.model = None
         self.data = None
 
+        self._is_shutting_down = False
+
 
 
     @property
@@ -255,7 +257,10 @@ class MyCobot280:
         # TODO(aliberts): move robot-specific logs logic here
 
     def disconnect(self) -> None:
-        #self.stop()
+        """Disconnect from robot and cameras"""
+        if self._is_shutting_down:
+            return
+
         if self.joystick is not None:
             self.joystick.stop()
 
@@ -266,4 +271,11 @@ class MyCobot280:
         self.is_connected = False
 
     def __del__(self):
-        self.disconnect()
+        """Cleanup when object is deleted"""
+        try:
+            # Set flag to prevent disconnect during shutdown
+            self._is_shutting_down = True
+            self.disconnect()
+        except:
+            # Ignore any errors during shutdown
+            pass
