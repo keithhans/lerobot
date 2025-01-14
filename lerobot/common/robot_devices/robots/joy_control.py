@@ -105,7 +105,9 @@ class JoyStick:
             "enable": True,
             "initialized": True,
             "origin": None,
+            "last": None,
             "gripper_val": 20,
+            "last_gripper_val": 20,
             "pump": False,
             "move_key_states": {
                 JoyStickContinous.LeftXAxis: 0,
@@ -142,7 +144,9 @@ class JoyStick:
 
     def start(self):
         self.global_states["origin"] = self.mc.get_coords()
+        self.global_states["last"] = deepcopy(self.global_states["origin"])
         self.global_states["gripper_val"] = self.mc.get_gripper_value()
+        self.global_states["last_gripper_val"] = self.global_states["gripper_val"] 
         """Start joystick control threads"""
         self._input_thread = Thread(target=self._retreive_joystick_input)
         self._move_thread = Thread(target=self._continous_move)
@@ -217,9 +221,11 @@ class JoyStick:
 
         # Handle tool controls
         if key == JoyStickKey.RLeftKey:
+            self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
             self.global_states["gripper_val"] = min(100, self.global_states["gripper_val"] + 2)
             self.mc.set_gripper_value(self.global_states["gripper_val"], 50)
         elif key == JoyStickKey.RTopKey:
+            self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
             self.global_states["gripper_val"] = max(20, self.global_states["gripper_val"] - 2)
             self.mc.set_gripper_value(self.global_states["gripper_val"], 50)
         elif key == JoyStickKey.RBottomKey:
@@ -266,7 +272,9 @@ class JoyStick:
         with self._lock:
             if self.global_states["origin"] is None:
                 return
-                
+
+            self.global_states["last"] = deepcopy(self.global_states["origin"])
+
             if key == JoyStickContinous.LeftXAxis:
                 self.global_states["origin"][1] -= value * ratio * 2
             elif key == JoyStickContinous.LeftYAxis:
@@ -312,12 +320,21 @@ class JoyStick:
             list[float] | None: Current coordinates [x,y,z,rx,ry,rz] or None if not initialized
         """
         with self._lock:
-            if self.global_states["origin"] is None:
+            if self.global_states["last"] is None:
                 return None
-            return deepcopy(self.global_states["origin"])
+            return deepcopy(self.global_states["last"])
 
     def get_gripper_value(self) -> float:
-        return self.global_states["gripper_val"]
+        return self.global_states["last_gripper_val"]
+
+    def get_action(self) -> list[float] | None:
+        with self._lock:
+            if self.global_states["origin"] is None:
+                return None
+            ret = deepcopy(self.global_states["origin"])
+            ret.append(self.global_states["gripper_val"])
+            return ret
+    
 
 def main():
     """Standalone operation"""

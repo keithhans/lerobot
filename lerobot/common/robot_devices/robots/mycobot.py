@@ -147,8 +147,8 @@ class MyCobot280:
         before_read_t = time.perf_counter()
         state = self.get_state()
 
-        # Temporarily use zeros for action, IK will be calculated later
-        action = [0, 0, 0, 0, 0, 0, state["gripper"]]
+        # Temporarily use target coord for action, IK will be calculated later
+        action = self.joystick.get_action()     #[0, 0, 0, 0, 0, 0, state["gripper"]]
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(self.logs["read_pos_dt_s"], state, action)
 

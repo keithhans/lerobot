@@ -233,14 +233,14 @@ def record_episode(
             return
             
         ep_dict = dataset["current_episode"]
-        state_list = ep_dict["observation.state"]
+        action_list = ep_dict["action"]
         
         # Calculate IK for each frame
-        actions = []
-        for state in state_list:
+        new_actions = []
+        for action in action_list:
             # Convert state tensor to position and rpy
-            position = np.array([state[0]/1000, state[1]/1000, state[2]/1000])
-            rpy = np.array([state[3]/180*3.14159, state[4]/180*3.14159, state[5]/180*3.14159]).tolist()
+            position = np.array([action[0]/1000, action[1]/1000, action[2]/1000])
+            rpy = np.array([action[3]/180*3.14159, action[4]/180*3.14159, action[5]/180*3.14159]).tolist()
             
             # Calculate IK
             q, converged = robot.ik(
@@ -251,16 +251,16 @@ def record_episode(
             
             if converged:
                 # Convert joint angles to degrees and add gripper value
-                action = torch.tensor([angle/3.14159*180 for angle in q] + [state[6]])  # Add gripper value
-                actions.append(action)
+                new_action = torch.tensor([angle/3.14159*180 for angle in q] + [action[6]])  # Add gripper value
+                new_actions.append(new_action)
             else:
-                print(f"Warning: IK didn't converge for state: {state}")
+                print(f"Warning: IK didn't converge for state: {action}")
                 # Use previous action or zeros if no previous action
-                action = actions[-1] if actions else torch.zeros(7)  # 6 joints + gripper
-                actions.append(action)
+                new_action = new_actions[-1] if new_actions else torch.zeros(7)  # 6 joints + gripper
+                new_actions.append(new_action)
         
         # Update the actions in the current episode
-        ep_dict["action"] = actions
+        ep_dict["action"] = new_actions
 
 
 @safe_stop_image_writer
