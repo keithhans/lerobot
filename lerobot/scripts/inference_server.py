@@ -1,16 +1,39 @@
 import socket
 import pickle
+import struct
 from lerobot.common.policies.act.modeling_act import ACTPolicy
+
+def recv_msg(sock):
+    # First receive the message length as a 4-byte integer
+    raw_msglen = sock.recv(4)
+    if not raw_msglen:
+        return None
+    msglen = struct.unpack('>I', raw_msglen)[0]
+    
+    # Now receive the message data
+    data = bytearray()
+    while len(data) < msglen:
+        packet = sock.recv(min(msglen - len(data), 4096))
+        if not packet:
+            return None
+        data.extend(packet)
+    return data
+
+def send_msg(sock, msg):
+    # Prefix message with its length as a 4-byte integer
+    msg_length = struct.pack('>I', len(msg))
+    sock.sendall(msg_length + msg)
 
 def main():
     # Initialize policy
     device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
-    ckpt_path = "outputs/train/act_koch_test/checkpoints/last/pretrained_model"
+    ckpt_path = "outputs/train/act_mycobot_real/checkpoints/last/pretrained_model"
     policy = ACTPolicy.from_pretrained(ckpt_path)
     policy.to(device)
 
     # Set up server socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(('localhost', 6666))
     server_socket.listen(1)
     print("Server listening on port 6666...")
@@ -23,20 +46,13 @@ def main():
         try:
             while True:
                 # Receive observation data
-                data = b""
-                while True:
-                    packet = client_socket.recv(4096)
-                    if not packet:
-                        break
-                    data += packet
-                    if len(packet) < 4096:
-                        break
-                
-                if not data:
+                data = recv_msg(client_socket)
+                if data is None:
                     break
 
                 # Deserialize observation
                 observation = pickle.loads(data)
+                print(f"Received observation with keys: {observation.keys()}")
 
                 # Move observation to device
                 for name in observation:
@@ -45,9 +61,11 @@ def main():
                 # Compute action
                 action = policy.select_action(observation)
                 action = action.squeeze(0).to('cpu')
+                print("action:", action)
 
                 # Send action back to client
-                client_socket.sendall(pickle.dumps(action))
+                action_data = pickle.dumps(action)
+                send_msg(client_socket, action_data)
 
         except Exception as e:
             print(f"Error processing client request: {e}")
