@@ -1,12 +1,34 @@
 import time
 import socket
 import pickle
+import struct
 import torch
 from pathlib import Path
 
 from lerobot.common.robot_devices.utils import busy_wait
 from lerobot.common.robot_devices.robots.factory import make_robot
 from lerobot.common.utils.utils import init_hydra_config
+
+def recv_msg(sock):
+    # First receive the message length as a 4-byte integer
+    raw_msglen = sock.recv(4)
+    if not raw_msglen:
+        return None
+    msglen = struct.unpack('>I', raw_msglen)[0]
+    
+    # Now receive the message data
+    data = bytearray()
+    while len(data) < msglen:
+        packet = sock.recv(min(msglen - len(data), 4096))
+        if not packet:
+            return None
+        data.extend(packet)
+    return data
+
+def send_msg(sock, msg):
+    # Prefix message with its length as a 4-byte integer
+    msg_length = struct.pack('>I', len(msg))
+    sock.sendall(msg_length + msg)
 
 def main():
     # Initialize robot
@@ -39,18 +61,13 @@ def main():
 
             # Send observation to server
             observation_data = pickle.dumps(observation)
-            client_socket.sendall(observation_data)
+            send_msg(client_socket, observation_data)
 
             # Receive action from server
-            action_data = b""
-            while True:
-                packet = client_socket.recv(4096)
-                if not packet:
-                    break
-                action_data += packet
-                if len(packet) < 4096:
-                    break
-
+            action_data = recv_msg(client_socket)
+            if action_data is None:
+                raise ConnectionError("Connection lost while receiving action")
+            
             action = pickle.loads(action_data)
 
             # Order the robot to move
