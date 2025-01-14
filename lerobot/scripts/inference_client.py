@@ -10,10 +10,12 @@ from lerobot.common.utils.utils import init_hydra_config
 
 def main():
     # Initialize robot
-    robot_path = Path("configs/robots/mycobot.yaml")
+    robot_path = Path("lerobot/configs/robot/mycobot.yaml")
     robot_overrides = {}
     robot_cfg = init_hydra_config(robot_path, robot_overrides)
     robot = make_robot(robot_cfg)
+    if not robot.is_connected:
+        robot.connect()
 
     # Set up client socket
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,6 +57,7 @@ def main():
 
             # Order the robot to move
             robot.send_action(action)
+            print(action)
 
             dt_s = time.perf_counter() - start_time
             busy_wait(1 / fps - dt_s)
