@@ -5,7 +5,7 @@ from lerobot.common.policies.act.modeling_act import ACTPolicy
 def main():
     # Initialize policy
     device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
-    ckpt_path = "outputs/train/act_koch_test/checkpoints/last/pretrained_model"
+    ckpt_path = "outputs/train/act_mycobot_real/checkpoints/last/pretrained_model"
     policy = ACTPolicy.from_pretrained(ckpt_path)
     policy.to(device)
 
@@ -37,6 +37,7 @@ def main():
 
                 # Deserialize observation
                 observation = pickle.loads(data)
+                print("received:", observation.keys())
 
                 # Move observation to device
                 for name in observation:
@@ -45,6 +46,7 @@ def main():
                 # Compute action
                 action = policy.select_action(observation)
                 action = action.squeeze(0).to('cpu')
+                print("action:", action)
 
                 # Send action back to client
                 client_socket.sendall(pickle.dumps(action))
