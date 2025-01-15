@@ -77,6 +77,36 @@ class MyCobot280:
     def num_cameras(self):
         return len(self.cameras)
 
+    @property
+    def camera_features(self) -> dict:
+        cam_ft = {}
+        for cam_key, cam in self.cameras.items():
+            key = f"observation.images.{cam_key}"
+            cam_ft[key] = {
+                "shape": (cam.height, cam.width, cam.channels),
+                "names": ["height", "width", "channels"],
+                "info": None,
+            }
+        return cam_ft
+
+    @property
+    def motor_features(self) -> dict:
+        #action_names = self.get_motor_names(self.leader_arms)
+        #state_names = self.get_motor_names(self.leader_arms)
+        return {
+            "action": {
+                "dtype": "float32",
+                "shape": (7,),
+                "names": ['J1', 'J2','J3','J4','J5','J6','gripper'],
+            },
+            "observation.state": {
+                "dtype": "float32",
+                "shape": (7,),
+                "names": ['J1', 'J2','J3','J4','J5','J6','gripper'],
+            },
+        }
+
+
     def connect(self) -> None:
         self.mc = MyCobot("/dev/ttyAMA0", 1000000, debug=False)
         self.mc.set_fresh_mode(0)
