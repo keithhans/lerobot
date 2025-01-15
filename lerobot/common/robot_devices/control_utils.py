@@ -236,13 +236,9 @@ def record_episode(
 
     # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
     if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
-        # Get the current episode data
-        if "current_episode" not in dataset:
-            print(f"current_episode not in dataset {dataset}]")
-            return
-            
-        ep_dict = dataset["current_episode"]
-        action_list = ep_dict["action"]
+        print("dataset keys", dataset.episode_buffer.keys())
+
+        action_list = dataset.episode_buffer['action']
         
         # Calculate IK for each frame
         new_actions = []
@@ -269,7 +265,11 @@ def record_episode(
                 new_actions.append(new_action)
         
         # Update the actions in the current episode
-        ep_dict["action"] = new_actions
+        dataset.episode_buffer['action'] = new_actions
+
+        print("action", dataset.episode_buffer['action'])
+
+        print("post processing done")
 
 
 @safe_stop_image_writer
