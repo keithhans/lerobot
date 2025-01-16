@@ -153,19 +153,10 @@ def init_keyboard_listener():
                 print("Escape key pressed. Stopping data recording...")
                 events["stop_recording"] = True
                 events["exit_early"] = True
-            # Remove handling of Ctrl+C to let Python's default handler work
-            elif key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
-                # Ignore Ctrl key presses
-                pass
         except Exception as e:
             print(f"Error handling key press: {e}")
 
-    # Create non-blocking listener that doesn't suppress keyboard interrupts
-    listener = keyboard.Listener(
-        on_press=on_press,
-        suppress=False  # Don't suppress any keyboard events
-    )
-    listener.daemon = True  # Make the listener thread a daemon so it won't prevent program exit
+    listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
     return listener, events
