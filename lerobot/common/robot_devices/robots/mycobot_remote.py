@@ -19,9 +19,8 @@ from dataclasses import dataclass, field, replace
 
 import torch
 
-from pymycobot import MyCobot
 from lerobot.common.robot_devices.cameras.utils import Camera
-from lerobot.common.robot_devices.robots.joy_control import JoyStick
+from lerobot.common.robot_devices.robots.mycobot_client import MyCobotClient
 
 import pinocchio as pin
 import numpy as np
@@ -53,7 +52,7 @@ class MyCobot280:
         self.robot_type = self.config.robot_type
         self.cameras = self.config.cameras
         self.is_connected = False
-        self.joystick = None
+
         self.logs = {}
 
         self.mc = None
@@ -108,13 +107,11 @@ class MyCobot280:
 
 
     def connect(self) -> None:
-        self.mc = MyCobot("/dev/ttyAMA0", 1000000, debug=False)
-        self.mc.set_fresh_mode(0)
-        self.is_connected = self.mc is not None
-        if not self.is_connected:
-            print("Can't connect to mycobot! ")
-            raise ConnectionError()
-
+        self.mc = MyCobotClient()
+        # todo: add error checking later
+        self.mc.connect()
+        self.is_connected = True
+        
         print("mycobot connected")
 
         for name in self.cameras:
@@ -129,11 +126,6 @@ class MyCobot280:
         self.model = pin.buildModelFromUrdf(urdf_filename)
         self.data = self.model.createData()
 
-        self.run_calibration()
-
-    def run_calibration(self) -> None:
-        pass
-        #    self.home()
 
     def ik(self, q_init, target_position, target_rpy=None):
         JOINT_ID = 6
@@ -170,15 +162,11 @@ class MyCobot280:
         if not self.is_connected:
             raise ConnectionError()
 
-        if self.joystick is None:
-            self.joystick = JoyStick(self.mc)
-            self.joystick.start()
-
         before_read_t = time.perf_counter()
         state = self.get_state()
 
         # Temporarily use target coord for action, IK will be calculated later
-        action = self.joystick.get_action()     #[0, 0, 0, 0, 0, 0, state["gripper"]]
+        action = self.mc.get_action()     #[0, 0, 0, 0, 0, 0, state["gripper"]]
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         print(self.logs["read_pos_dt_s"], state, action)
 
@@ -210,23 +198,15 @@ class MyCobot280:
         return obs_dict, action_dict
 
     def get_state(self, use_robot_data = False) -> dict:
-        coords = None
-        gripper_value = None
-        if use_robot_data:
-            coords = self.mc.get_coords()
-            gripper_value = self.mc.get_gripper_value()
-        else:
-            coords = self.joystick.get_current_coords()
-            gripper_value = self.joystick.get_gripper_value()
+        coords = self.mc.get_coords(use_robot_data)
+        gripper_value = self.mc.get_gripper_value(use_robot_data)
+
         while coords == None:
             print("Can't get coords, sleep for 10ms...")
             time.sleep(0.01)
-            if use_robot_data:
-                coords = self.mc.get_coords()
-                gripper_value = self.mc.get_gripper_value()
-            else:
-                coords = self.joystick.get_current_coords()
-                gripper_value = self.joystick.get_gripper_value()                
+            coords = self.mc.get_coords(use_robot_data)
+            gripper_value = self.mc.get_gripper_value(use_robot_data)
+
         return {
             "x": coords[0],
             "y": coords[1],
@@ -291,8 +271,7 @@ class MyCobot280:
         if self._is_shutting_down:
             return
 
-        if self.joystick is not None:
-            self.joystick.stop()
+        self.mc.disconnect()
 
         if len(self.cameras) > 0:
             for cam in self.cameras.values():
