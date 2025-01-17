@@ -105,6 +105,18 @@ class MyCobotClient:
             'value': value,
             'speed': speed
         })
+        
+    def send_angles(self, angles: List[float], speed: int = 50) -> None:
+        """Send joint angles to robot
+        
+        Args:
+            angles: List of 6 joint angles in degrees
+            speed: Movement speed (1-100), defaults to 50
+        """
+        return self._send_command('send_angles', {
+            'angles': angles,
+            'speed': speed
+        })
 
 def main():
     """Example usage of the client"""
@@ -127,8 +139,9 @@ def main():
                 coords = client.get_coords(False)
                 print(f"Current coords: {coords}")
                 
-                # Test gripper control
+                # Test controls
                 client.set_gripper_value(50)  # Set to middle position
+                client.send_angles([0, 0, -90, 0, 0, 0], 50)  # Move to home position
                 
                 time.sleep(5)
                 

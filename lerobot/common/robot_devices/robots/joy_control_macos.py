@@ -429,6 +429,20 @@ class JoyStick:
                                 'status': 'ok',
                                 'data': None
                             }
+                        elif command == 'send_angles':
+                            angles = params.get('angles')
+                            speed = params.get('speed', 50)
+                            if not angles or len(angles) != 6:
+                                response = {
+                                    'status': 'error',
+                                    'error': 'Invalid angles parameter'
+                                }
+                            else:
+                                self.mc.send_angles(angles, speed)
+                                response = {
+                                    'status': 'ok',
+                                    'data': None
+                                }
                             
                         # Send response
                         response_data = json.dumps(response).encode('utf-8')
