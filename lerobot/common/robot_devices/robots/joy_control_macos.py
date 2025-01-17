@@ -418,6 +418,17 @@ class JoyStick:
                                 'status': 'ok',
                                 'data': action if action is None else list(action)
                             }
+                        elif command == 'set_gripper_value':
+                            value = params.get('value')
+                            speed = params.get('speed', 50)
+                            with self._lock:
+                                self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
+                                self.global_states["gripper_val"] = value
+                                self.mc.set_gripper_value(value, speed)
+                            response = {
+                                'status': 'ok',
+                                'data': None
+                            }
                             
                         # Send response
                         response_data = json.dumps(response).encode('utf-8')

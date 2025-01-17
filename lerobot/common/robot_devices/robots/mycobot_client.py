@@ -93,6 +93,18 @@ class MyCobotClient:
             List of [x,y,z,rx,ry,rz] or None if not available
         """
         return self._send_command('get_coords', {'use_robot_data': use_robot_data})
+        
+    def set_gripper_value(self, value: int, speed: int = 50) -> None:
+        """Set gripper value
+        
+        Args:
+            value: Gripper value (20-100)
+            speed: Movement speed (1-100), defaults to 50
+        """
+        return self._send_command('set_gripper_value', {
+            'value': value,
+            'speed': speed
+        })
 
 def main():
     """Example usage of the client"""
@@ -115,7 +127,10 @@ def main():
                 coords = client.get_coords(False)
                 print(f"Current coords: {coords}")
                 
-                time.sleep(5)  # Poll at 10Hz
+                # Test gripper control
+                client.set_gripper_value(50)  # Set to middle position
+                
+                time.sleep(5)
                 
             except Exception as e:
                 print(f"Error getting robot state: {e}")
