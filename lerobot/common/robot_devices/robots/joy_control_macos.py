@@ -247,7 +247,7 @@ class JoyStick:
         # Handle movement keys
         if key in self.global_states["move_key_states"]:
             if self.global_states["origin"] is None:
-                coords = self.get_coords()
+                coords = self._get_coords()
                 with self._lock:
                     self.global_states["origin"] = coords
             
