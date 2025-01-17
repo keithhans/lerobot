@@ -8,6 +8,8 @@ import platform
 import threading
 from copy import deepcopy
 import queue
+import socket
+import json
 
 if "linux" in platform.platform().lower():
     import RPi.GPIO as GPIO
@@ -142,6 +144,13 @@ class JoyStick:
         self._move_thread = None
         self._lock = threading.Lock()
 
+        # Add server socket initialization
+        self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._server_socket.bind(('0.0.0.0', 6789))  # Listen on all interfaces
+        self._server_socket.listen(1)
+        self._server_thread = None
+
     def get_coords(self):
         coords = self.mc.get_coords()
         while coords == None or coords == -1 or len(coords) != 6:
@@ -170,6 +179,11 @@ class JoyStick:
         self._move_thread = Thread(target=self._continous_move)
         self._move_thread.start()
         
+        # Start server thread
+        self._server_thread = Thread(target=self._handle_clients)
+        self._server_thread.daemon = True
+        self._server_thread.start()
+        
         # Start event processing in the main thread
         self._process_events()
 
@@ -178,6 +192,8 @@ class JoyStick:
         self.context["running"] = False
         if self._move_thread:
             self._move_thread.join()
+        if self._server_thread:
+            self._server_socket.close()
         pygame.quit()
 
     def _process_events(self):
@@ -355,6 +371,54 @@ class JoyStick:
             ret.append(self.global_states["gripper_val"])
             return ret
     
+    def _handle_clients(self):
+        """Handle client connections and requests"""
+        while self.context["running"]:
+            try:
+                self._server_socket.settimeout(1.0)
+                client_socket, address = self._server_socket.accept()
+                print(f"Client connected from {address}")
+                
+                try:
+                    while self.context["running"]:
+                        # Receive request
+                        data = client_socket.recv(1024).decode('utf-8')
+                        if not data:
+                            break
+                            
+                        # Parse request
+                        request = json.loads(data)
+                        command = request.get('command')
+                        
+                        # Handle commands
+                        response = {'status': 'error', 'data': None}
+                        if command == 'get_gripper_value':
+                            value = self.get_gripper_value()
+                            response = {
+                                'status': 'ok',
+                                'data': value
+                            }
+                        elif command == 'get_action':
+                            action = self.get_action()
+                            response = {
+                                'status': 'ok',
+                                'data': action if action is None else list(action)
+                            }
+                            
+                        # Send response
+                        response_data = json.dumps(response).encode('utf-8')
+                        client_socket.sendall(response_data + b'\n')  # Add newline for message boundary
+                        
+                except Exception as e:
+                    print(f"Error handling client request: {e}")
+                finally:
+                    client_socket.close()
+                    
+            except socket.timeout:
+                continue
+            except Exception as e:
+                if self.context["running"]:
+                    print(f"Error accepting client connection: {e}")
 
 def main():
     """Standalone operation"""
