@@ -258,8 +258,6 @@ def record_episode(
         # Update the actions in the current episode
         dataset.episode_buffer['action'] = new_actions
 
-        print("action", dataset.episode_buffer['action'])
-
         print("post processing done")
 
 
