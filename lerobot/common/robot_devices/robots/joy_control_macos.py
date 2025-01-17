@@ -151,7 +151,7 @@ class JoyStick:
         self._server_socket.listen(1)
         self._server_thread = None
 
-    def get_coords(self):
+    def _get_coords(self):
         coords = self.mc.get_coords()
         while coords == None or coords == -1 or len(coords) != 6:
             print("get_coords", coords)
@@ -169,7 +169,7 @@ class JoyStick:
 
     def start(self):
         """Start joystick control threads"""
-        self.global_states["origin"] = self.get_coords()
+        self.global_states["origin"] = self._get_coords()
         self.global_states["last"] = deepcopy(self.global_states["origin"])
         self.global_states["gripper_val"] = self._get_gripper_value()
         self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
@@ -395,10 +395,22 @@ class JoyStick:
                             if use_robot_data:
                                 value = self._get_gripper_value()
                             else:
-                                value = self.global_states["last_gripper_val"]
+                                with self._lock:
+                                    value = self.global_states["last_gripper_val"]
                             response = {
                                 'status': 'ok',
                                 'data': value
+                            }
+                        elif command == 'get_coords':
+                            use_robot_data = params.get('use_robot_data', False)
+                            if use_robot_data:
+                                coords = self._get_coords()
+                            else:
+                                with self._lock:
+                                    coords = deepcopy(self.global_states["last"])
+                            response = {
+                                'status': 'ok',
+                                'data': coords if coords is None else list(coords)
                             }
                         elif command == 'get_action':
                             action = self.get_action()

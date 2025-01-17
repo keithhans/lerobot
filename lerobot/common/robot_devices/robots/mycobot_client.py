@@ -82,6 +82,17 @@ class MyCobotClient:
             List of [x,y,z,rx,ry,rz,gripper] or None if not available
         """
         return self._send_command('get_action')
+        
+    def get_coords(self, use_robot_data: bool = False) -> Optional[List[float]]:
+        """Get current coordinates
+        
+        Args:
+            use_robot_data: If True, get coords directly from robot, otherwise use cached value
+            
+        Returns:
+            List of [x,y,z,rx,ry,rz] or None if not available
+        """
+        return self._send_command('get_coords', {'use_robot_data': use_robot_data})
 
 def main():
     """Example usage of the client"""
@@ -100,6 +111,9 @@ def main():
                     
                 gripper = client.get_gripper_value(False)
                 print(f"Gripper value: {gripper}")
+                
+                coords = client.get_coords(False)
+                print(f"Current coords: {coords}")
                 
                 time.sleep(5)  # Poll at 10Hz
                 
