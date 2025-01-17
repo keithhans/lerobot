@@ -239,7 +239,7 @@ class JoyStick:
             self.mc.send_angles(self.arm_angle_table["init"], self.arm_speed)
             self.global_states["enable"] = True
             time.sleep(3)
-            self.global_states["origin"] = None
+            self.global_states["origin"] = self._get_coords()
 
         if not self.global_states["enable"] or not self.global_states["initialized"]:
             return
