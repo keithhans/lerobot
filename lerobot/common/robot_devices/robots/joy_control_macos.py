@@ -159,7 +159,7 @@ class JoyStick:
             coords = self.mc.get_coords()
         return coords
 
-    def get_gripper_value(self):
+    def _get_gripper_value(self):
         value = self.mc.get_gripper_value()
         while value == None or value == -1:
             print("get_gripper_value", value)
@@ -171,7 +171,7 @@ class JoyStick:
         """Start joystick control threads"""
         self.global_states["origin"] = self.get_coords()
         self.global_states["last"] = deepcopy(self.global_states["origin"])
-        self.global_states["gripper_val"] = self.get_gripper_value()
+        self.global_states["gripper_val"] = self._get_gripper_value()
         self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
         
         print(self.global_states)
@@ -360,9 +360,6 @@ class JoyStick:
                 return None
             return deepcopy(self.global_states["last"])
 
-    def get_gripper_value(self) -> float:
-        return self.global_states["last_gripper_val"]
-
     def get_action(self) -> list[float] | None:
         with self._lock:
             if self.global_states["origin"] is None:
@@ -389,11 +386,16 @@ class JoyStick:
                         # Parse request
                         request = json.loads(data)
                         command = request.get('command')
+                        params = request.get('params', {})
                         
                         # Handle commands
                         response = {'status': 'error', 'data': None}
                         if command == 'get_gripper_value':
-                            value = self.get_gripper_value()
+                            use_robot_data = params.get('use_robot_data', False)
+                            if use_robot_data:
+                                value = self._get_gripper_value()
+                            else:
+                                value = self.global_states["last_gripper_val"]
                             response = {
                                 'status': 'ok',
                                 'data': value

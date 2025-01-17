@@ -29,11 +29,12 @@ class MyCobotClient:
             self.socket.close()
             self.socket = None
             
-    def _send_command(self, command: str) -> Union[None, float, List[float]]:
+    def _send_command(self, command: str, params: dict = None) -> Union[None, float, List[float]]:
         """Send command to server and get response
         
         Args:
             command: Command string to send
+            params: Optional parameters for the command
             
         Returns:
             Server response data
@@ -46,8 +47,12 @@ class MyCobotClient:
             
         try:
             # Send request
-            request = json.dumps({'command': command}).encode('utf-8')
-            self.socket.sendall(request)
+            request = {
+                'command': command,
+                'params': params or {}
+            }
+            request_data = json.dumps(request).encode('utf-8')
+            self.socket.sendall(request_data)
             
             # Get response
             response = self.socket.recv(1024).decode('utf-8')
@@ -62,9 +67,13 @@ class MyCobotClient:
             self.disconnect()  # Reset connection on error
             raise RuntimeError(f"Communication error: {e}")
         
-    def get_gripper_value(self) -> float:
-        """Get current gripper value"""
-        return self._send_command('get_gripper_value')
+    def get_gripper_value(self, use_robot_data: bool = False) -> float:
+        """Get current gripper value
+        
+        Args:
+            use_robot_data: If True, get value directly from robot, otherwise use cached value
+        """
+        return self._send_command('get_gripper_value', {'use_robot_data': use_robot_data})
         
     def get_action(self) -> Optional[List[float]]:
         """Get current robot action (position + gripper)
@@ -89,7 +98,7 @@ def main():
                 if action is not None:
                     print(f"Current action: {action}")
                     
-                gripper = client.get_gripper_value()
+                gripper = client.get_gripper_value(False)
                 print(f"Gripper value: {gripper}")
                 
                 time.sleep(5)  # Poll at 10Hz
