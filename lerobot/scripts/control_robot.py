@@ -98,9 +98,6 @@ import logging
 import time
 from pathlib import Path
 from typing import List
-import cv2
-
-from torchvision import transforms
 
 # from safetensors.torch import load_file, save_file
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
@@ -387,12 +384,6 @@ if __name__ == "__main__":
         nargs="*",
         help="Any key=value arguments to override config values (use dots for.nested=overrides)",
     )
-    base_parser.add_argument(
-        "--display-cameras",
-        type=int,
-        default=1,
-        help="Display all cameras on screen (set to 1 to display or 0).",
-    )
 
     parser_calib = subparsers.add_parser("calibrate", parents=[base_parser])
     parser_calib.add_argument(
@@ -406,12 +397,13 @@ if __name__ == "__main__":
     parser_teleop.add_argument(
         "--fps", type=none_or_int, default=None, help="Frames per second (set to None to disable)"
     )
-    # parser_teleop.add_argument(
-    #     "--display-cameras",
-    #     type=int,
-    #     default=1,
-    #     help="Display all cameras on screen (set to 1 to display or 0).",
-    # )
+
+    parser_teleop.add_argument(
+        "--display-cameras",
+        type=int,
+        default=1,
+        help="Display all cameras on screen (set to 1 to display or 0).",
+    )
 
     parser_record = subparsers.add_parser("record", parents=[base_parser])
     task_args = parser_record.add_mutually_exclusive_group(required=True)
