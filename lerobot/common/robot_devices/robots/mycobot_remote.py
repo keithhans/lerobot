@@ -168,7 +168,7 @@ class MyCobot280:
         # Temporarily use target coord for action, IK will be calculated later
         action = self.mc.get_action()     #[0, 0, 0, 0, 0, 0, state["gripper"]]
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
-        print(self.logs["read_pos_dt_s"], state, action)
+        #print(self.logs["read_pos_dt_s"], state, action)
 
         if self.state_keys is None:
             self.state_keys = list(state)
