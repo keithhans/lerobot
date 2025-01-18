@@ -255,7 +255,7 @@ class MyCobot280:
 
         before_write_t = time.perf_counter()
         self.mc.send_angles(angles, 50)
-        print("action:", angles, action[6].item())
+        # print("action:", angles, action[6].item())
         self.mc.set_gripper_value(int(action[6].item()), 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
