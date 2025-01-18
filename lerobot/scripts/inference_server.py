@@ -1,6 +1,8 @@
 import socket
 import pickle
 import struct
+import torch
+
 from lerobot.common.policies.act.modeling_act import ACTPolicy
 
 def recv_msg(sock):
@@ -56,6 +58,8 @@ def main():
 
                 # Move observation to device
                 for name in observation:
+                    if "image" in name:
+                        observation[name] = observation[name].type(torch.float32) / 255
                     observation[name] = observation[name].to(device)
 
                 # Compute action

@@ -57,12 +57,13 @@ def main():
             # with batch dimension
             for name in observation:
                 if "image" in name:
-                    observation[name] = observation[name].type(torch.float32) / 255
+                    #observation[name] = observation[name].type(torch.float32) / 255   # move type change to server side
                     observation[name] = observation[name].permute(2, 0, 1).contiguous()
                 observation[name] = observation[name].unsqueeze(0)
 
             # Send observation to server
             observation_data = pickle.dumps(observation)
+            t1 = time.perf_counter()
             send_msg(client_socket, observation_data)
 
             # Receive action from server
@@ -74,7 +75,8 @@ def main():
 
             # Order the robot to move
             robot.send_action(action)
-            print(action)
+            t2 = time.perf_counter()
+            print(t2-t1, action, len(observation_data))
 
             dt_s = time.perf_counter() - start_time
             busy_wait(1 / fps - dt_s)
