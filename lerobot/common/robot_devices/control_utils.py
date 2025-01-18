@@ -225,15 +225,11 @@ def record_episode(
         teleoperate=policy is None,
     )
 
-    # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
-    if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
-        print("dataset keys", dataset.episode_buffer.keys())
-
-        action_list = dataset.episode_buffer['action']
-        
+    def coords2angles(coords):
         # Calculate IK for each frame
         new_actions = []
-        for action in action_list:
+        for action in coords:
+
             # Convert state tensor to position and rpy
             position = np.array([action[0]/1000, action[1]/1000, action[2]/1000])
             rpy = np.array([action[3]/180*3.14159, action[4]/180*3.14159, action[5]/180*3.14159]).tolist()
@@ -254,9 +250,17 @@ def record_episode(
                 # Use previous action or zeros if no previous action
                 new_action = new_actions[-1] if new_actions else torch.zeros(7)  # 6 joints + gripper
                 new_actions.append(new_action)
+
+        return new_actions
+
+
+    # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
+    if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
+        print("dataset keys", dataset.episode_buffer.keys())
         
-        # Update the actions in the current episode
-        dataset.episode_buffer['action'] = new_actions
+        # Do coords2angles conversion in the current episode
+        dataset.episode_buffer['action'] = coords2angles(dataset.episode_buffer['action'])
+        dataset.episode_buffer['observation.state'] = coords2angles(dataset.episode_buffer['observation.state'])
 
         print("post processing done")
 

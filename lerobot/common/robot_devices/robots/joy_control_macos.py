@@ -156,6 +156,14 @@ class JoyStick:
             coords = self.mc.get_coords()
         return coords
 
+    def _get_angles(self):
+        angles = self.mc.get_angles()
+        while angles == None or angles == -1 or len(angles) != 6:
+            print("get_angles", angles)
+            time.sleep(0.01)
+            angles = self.mc.get_angles()
+        return angles
+
     def _get_gripper_value(self):
         value = self.mc.get_gripper_value()
         while value == None or value == -1:
@@ -406,7 +414,7 @@ class JoyStick:
                         elif command == 'get_coords':
                             use_robot_data = params.get('use_robot_data', False)
                             if use_robot_data:
-                                coords = self._get_coords()
+                                coords = self._get_angles() # hack!!! _get_coords()
                             else:
                                 with self._lock:
                                     coords = deepcopy(self.global_states["last"])
