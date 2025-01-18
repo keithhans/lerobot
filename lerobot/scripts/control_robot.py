@@ -302,11 +302,11 @@ def record(
         if not events["stop_recording"] and (
             (dataset.num_episodes < num_episodes - 1) or events["rerecord_episode"]
         ):
-            log_say("Reset the environment", play_sounds)
+            log_say("Reset the environment", play_sounds, True)
             reset_environment(robot, events, reset_time_s)
 
         if events["rerecord_episode"]:
-            log_say("Re-record episode", play_sounds)
+            log_say("Re-record episode", play_sounds, True)
             events["rerecord_episode"] = False
             events["exit_early"] = False
             dataset.clear_episode_buffer()
