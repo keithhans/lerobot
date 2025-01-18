@@ -87,7 +87,7 @@ class JoyStick:
         """
         self.context = {"running": True}
         self.arm_speed = 50
-        self.sampling_rate = 10
+        self.ratio = 0.5
         self.arm_angle_table = {"init": [0, 0, -90, 0, 0, 0]}
         
         # Initialize robot connection
@@ -286,8 +286,17 @@ class JoyStick:
             self.mc.set_gripper_value(self.global_states["gripper_val"], 50)
         elif key == JoyStickKey.RBottomKey:
             pump_on()
+            self.ratio -= 0.2
+            if self.ratio < 0.2:
+                self.ratio = 0.2
+            print("ratio:", self.ratio)
         elif key == JoyStickKey.RRightKey:
             pump_off()
+            self.ratio += 0.2
+            if self.ratio > 2:
+                self.ratio = 2
+            print("ratio:", self.ratio)
+
 
     def _blink_color(self, colors, delay=0.5):
         """Helper to blink robot LED colors"""
@@ -326,8 +335,14 @@ class JoyStick:
 
             time.sleep(0.01)
 
+            # looks like _get_coords() is high cost, while _get_angles() is ok.
+            # if moving:
+            #     angles = self._get_angles()
+            #     print("angles", angles)
+
     def _update_coordinates(self, key, value, ratio):
         """Update target coordinates based on joystick input"""
+        ratio = self.ratio
         with self._lock:
             if self.global_states["origin"] is None:
                 return
