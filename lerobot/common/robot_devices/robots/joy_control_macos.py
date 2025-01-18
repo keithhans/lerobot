@@ -31,7 +31,6 @@ class JoyStickKey(Enum):
     ArrowDown = 12
     ArrowLeft = 13
     ArrowRight = 14
-    ArrowReleased = (0, 0)
 
 class JoyStickContinous(Enum):
     LeftXAxis = 0
@@ -56,7 +55,6 @@ joystick_key_map = {
     12: JoyStickKey.ArrowDown,
     14: JoyStickKey.ArrowRight,
     13: JoyStickKey.ArrowLeft,
-    (0, 0): JoyStickKey.ArrowReleased,
 }
 
 joystick_continous_map = {
@@ -119,7 +117,6 @@ class JoyStick:
                 JoyStickKey.ArrowLeft: 0,
                 JoyStickKey.ArrowRight: 0,
                 JoyStickContinous.RightXAxis: 0,
-                JoyStickKey.ArrowReleased: 0,
             },
         }
 
@@ -202,11 +199,13 @@ class JoyStick:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.context["running"] = False
-                elif event.type == pygame.JOYBUTTONDOWN or event.type == pygame.JOYBUTTONUP:
+                elif event.type == pygame.JOYBUTTONDOWN:
                     for key_id in range(self.joystick.get_numbuttons()):
                         if self.joystick.get_button(key_id):
                             print("joystick_key_map[key_id]", key_id, joystick_key_map[key_id])
                             self._dispatch_key_action(joystick_key_map[key_id], 1.0)
+                elif event.type == pygame.JOYBUTTONUP:
+                    self._dispatch_key_action(joystick_key_map[event.button], 0)
                 elif event.type == pygame.JOYAXISMOTION:
                     for key_id in range(self.joystick.get_numaxes()):
                         axis = self.joystick.get_axis(key_id)
@@ -255,13 +254,8 @@ class JoyStick:
                 self.global_states["move_key_states"][key] = 0
             else:
                 self.global_states["move_key_states"][key] = value
-
-            if key == JoyStickKey.ArrowReleased:
-                for arrow_key in [JoyStickKey.ArrowUp, JoyStickKey.ArrowDown, 
-                                JoyStickKey.ArrowLeft, JoyStickKey.ArrowRight]:
-                    self.global_states["move_key_states"][arrow_key] = 0
             
-            #print("key", key, "states", self.global_states["move_key_states"], "value", self.global_states["origin"])
+        #print("key", key, "states", self.global_states["move_key_states"], "value", self.global_states["origin"])
 
         # Handle function keys
         if key == JoyStickContinous.L2 and not_zero(value):
@@ -333,21 +327,29 @@ class JoyStick:
             self.global_states["last"] = deepcopy(self.global_states["origin"])
 
             if key == JoyStickContinous.LeftXAxis:
-                self.global_states["origin"][1] -= value * ratio * 2
-            elif key == JoyStickContinous.LeftYAxis:
                 self.global_states["origin"][0] += value * ratio * 2
+            elif key == JoyStickContinous.LeftYAxis:
+                self.global_states["origin"][1] += value * ratio * 2
             elif key == JoyStickContinous.RightYAxis:
                 self.global_states["origin"][2] += value * ratio
             elif key == JoyStickContinous.RightXAxis:
                 self.global_states["origin"][5] -= value * ratio
-            elif key == JoyStickKey.ArrowUp:
-                self.global_states["origin"][3] += 1
-            elif key == JoyStickKey.ArrowDown:
-                self.global_states["origin"][3] -= 1
             elif key == JoyStickKey.ArrowRight:
-                self.global_states["origin"][4] -= 1
+                self.global_states["origin"][3] += 1 * ratio
+                if self.global_states["origin"][3] > 180:
+                    self.global_states["origin"][3] -= 360
             elif key == JoyStickKey.ArrowLeft:
-                self.global_states["origin"][4] += 1
+                self.global_states["origin"][3] -= 1 * ratio
+                if self.global_states["origin"][3] < -180:
+                    self.global_states["origin"][3] += 360
+            elif key == JoyStickKey.ArrowDown:
+                self.global_states["origin"][4] -= 1 * ratio
+                if self.global_states["origin"][4] < -180:
+                    self.global_states["origin"][4] += 360
+            elif key == JoyStickKey.ArrowUp:
+                self.global_states["origin"][4] += 1 * ratio
+                if self.global_states["origin"][4] > 180:
+                    self.global_states["origin"][4] -= 360
 
     def get_current_coords(self) -> list[float] | None:
         """Get current target coordinates in a thread-safe way
