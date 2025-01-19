@@ -290,12 +290,16 @@ class JoyStick:
             if self.ratio < 0.2:
                 self.ratio = 0.2
             print("ratio:", self.ratio)
+            val = int(255 * self.ratio / 2)
+            self.mc.set_color(0, val, 0)
         elif key == JoyStickKey.RRightKey:
             pump_off()
             self.ratio += 0.2
             if self.ratio > 2:
                 self.ratio = 2
             print("ratio:", self.ratio)
+            val = int(255 * self.ratio / 2)
+            self.mc.set_color(0, val, 0)
 
 
     def _blink_color(self, colors, delay=0.5):
@@ -333,7 +337,7 @@ class JoyStick:
                 dt = time.perf_counter() - start_time
                 print(f"moving {self.global_states['origin']}, send_coords took {dt*1000:.2f}ms")
 
-            time.sleep(0.01)
+            time.sleep(0.02)
 
             # looks like _get_coords() is high cost, while _get_angles() is ok.
             # if moving:
@@ -357,6 +361,10 @@ class JoyStick:
                 self.global_states["origin"][2] += value * ratio
             elif key == JoyStickContinous.RightXAxis:
                 self.global_states["origin"][5] -= value * ratio
+                if self.global_states["origin"][5] > 180:
+                    self.global_states["origin"][5] -= 360
+                elif self.global_states["origin"][5] < -180:
+                    self.global_states["origin"][5] += 360
             elif key == JoyStickKey.ArrowRight:
                 self.global_states["origin"][3] += 1 * ratio
                 if self.global_states["origin"][3] > 180:
