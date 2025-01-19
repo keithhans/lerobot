@@ -225,10 +225,10 @@ def record_episode(
         teleoperate=policy is None,
     )
 
-    def coords2angles(coords):
+    def coords2angles(coords, desc):
         # Calculate IK for each frame
         new_actions = []
-        for action in coords:
+        for action in tqdm.tqdm(coords, desc = desc):
 
             # Convert state tensor to position and rpy
             position = np.array([action[0]/1000, action[1]/1000, action[2]/1000])
@@ -255,12 +255,12 @@ def record_episode(
 
 
     # If this is a MyCobot robot and we're in teleoperation mode, calculate IK for actions
-    if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data'):
-        print("dataset keys", dataset.episode_buffer.keys())
+    if policy is None and hasattr(robot, 'model') and hasattr(robot, 'data') and not events["rerecord_episode"]:
+        #print("dataset keys", dataset.episode_buffer.keys())
         
         # Do coords2angles conversion in the current episode
-        dataset.episode_buffer['action'] = coords2angles(dataset.episode_buffer['action'])
-        dataset.episode_buffer['observation.state'] = coords2angles(dataset.episode_buffer['observation.state'])
+        dataset.episode_buffer['action'] = coords2angles(dataset.episode_buffer['action'], "processing action")
+        dataset.episode_buffer['observation.state'] = coords2angles(dataset.episode_buffer['observation.state'], "processing state")
 
         print("post processing done")
 
