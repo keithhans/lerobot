@@ -2,6 +2,7 @@ import socket
 import pickle
 import struct
 import torch
+import time
 
 from lerobot.common.policies.act.modeling_act import ACTPolicy
 
@@ -28,8 +29,10 @@ def send_msg(sock, msg):
 
 def main():
     # Initialize policy
-    device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
-    ckpt_path = "outputs/train/act_mycobot_real/checkpoints/last/pretrained_model"
+    device = "cpu"
+    #device = "cuda"  # TODO: On Mac, use "mps" or "cpu"
+    #ckpt_path = "outputs/train/act_mycobot_real/checkpoints/last/pretrained_model"
+    ckpt_path = "act_mycobot_pickblock3"
     policy = ACTPolicy.from_pretrained(ckpt_path)
     policy.to(device)
 
@@ -53,6 +56,8 @@ def main():
                     break
 
                 # Deserialize observation
+                t1 = time.perf_counter()
+
                 observation = pickle.loads(data)
                 print(f"Received observation with keys: {observation.keys()}")
 
@@ -65,7 +70,9 @@ def main():
                 # Compute action
                 action = policy.select_action(observation)
                 action = action.squeeze(0).to('cpu')
-                print("action:", action)
+                t2 = time.perf_counter()
+
+                print(t2-t1, "action:", action)
 
                 # Send action back to client
                 action_data = pickle.dumps(action)
