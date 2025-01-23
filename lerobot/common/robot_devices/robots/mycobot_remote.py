@@ -259,7 +259,10 @@ class MyCobot280:
         self.mc.set_gripper_value(int(action[6].item()), 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
-        # TODO(aliberts): return action_sent when motion is limited
+        # get the actual action since user might override the action
+        action = self.mc.get_action()
+        action = torch.as_tensor(list(action))
+
         return action
 
     def print_logs(self) -> None:
