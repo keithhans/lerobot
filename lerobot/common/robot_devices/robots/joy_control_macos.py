@@ -10,6 +10,7 @@ from copy import deepcopy
 import queue
 import socket
 import json
+import pinocchio as pin
 
 if "linux" in platform.platform().lower():
     import RPi.GPIO as GPIO
@@ -126,6 +127,10 @@ class JoyStick:
             JoyStickContinous.L2: -1,
             JoyStickContinous.R2: -1,
         }
+
+        urdf_filename = "lerobot/common/robot_devices/robots/mycobot_280_pi.urdf"
+        self.model = pin.buildModelFromUrdf(urdf_filename)
+        self.data = self.model.createData()
 
         pygame.init()
         pygame.joystick.init()
@@ -476,6 +481,14 @@ class JoyStick:
                                     'status': 'ok',
                                     'data': None
                                 }
+
+                                # convert angles to ee coords and update global_states
+                                radians = angles / 180 * 3.1415
+                                pin.forwardKinematics(self.model, self.data, radians)
+                                coords = data.oMi[6].translation * 1000
+                                with self._lock:
+                                    self.global_states["last"] = deepcopy(self.global_states["origin"])
+                                    self.global_states["origin"] = coords
                             
                         # Send response
                         response_data = json.dumps(response).encode('utf-8')
