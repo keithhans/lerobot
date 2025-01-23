@@ -483,9 +483,13 @@ class JoyStick:
                                 }
 
                                 # convert angles to ee coords and update global_states
-                                radians = angles / 180 * 3.1415
+                                radians = angles / 180 * 3.141592653589793
                                 pin.forwardKinematics(self.model, self.data, radians)
-                                coords = data.oMi[6].translation * 1000
+                                rot_current = data.oMi[6].rotation
+                                rpy_current = pin.rpy.matrixToRpy(rot_current)
+                                coords = (data.oMi[6].translation * 1000).tolist()
+                                coords.extend((rpy_current / 3.141592653589793 * 180).tolist())
+
                                 with self._lock:
                                     self.global_states["last"] = deepcopy(self.global_states["origin"])
                                     self.global_states["origin"] = coords
