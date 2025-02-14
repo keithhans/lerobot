@@ -392,7 +392,8 @@ class JoyStick:
                 else:
                     self.mc.send_coords(self.global_states["origin"], move_speed, 1)
                 dt = time.perf_counter() - start_time
-                print(f"moving {self.global_states['origin']}, send_coords took {dt*1000:.2f}ms")
+                formatted_origin = [f"{x:.2f}" for x in self.global_states['origin']]
+                print(f"moving {formatted_origin}, send_coords took {dt*1000:.2f}ms")
 
             time.sleep(0.02)
 
