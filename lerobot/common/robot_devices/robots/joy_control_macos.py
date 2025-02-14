@@ -11,6 +11,7 @@ import queue
 import socket
 import json
 import pinocchio as pin
+import numpy as np
 
 if "linux" in platform.platform().lower():
     import RPi.GPIO as GPIO
@@ -145,6 +146,9 @@ class JoyStick:
         self._input_thread = None
         self._move_thread = None
         self._lock = threading.Lock()
+
+        self.control_angles = True   # if False, control ee coordinates
+        self.last_q = np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129])
 
         # Add server socket initialization
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -315,6 +319,35 @@ class JoyStick:
             self.mc.set_color(r, g, b)
             time.sleep(delay)
 
+    def _ik(self, q_init, target_position, target_rpy=None):
+        JOINT_ID = 6
+        eps = 1e-4
+        IT_MAX = 1000
+        DT = 1e-1
+        damp = 1e-12
+
+        if target_rpy is None:
+            target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
+        target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
+        oMdes = pin.SE3(target_rotation, target_position)
+        q = q_init.copy()
+        i = 0
+        while True:
+            pin.forwardKinematics(self.model, self.data, q)
+            iMd = self.data.oMi[JOINT_ID].actInv(oMdes)
+            err = pin.log(iMd).vector
+            if np.linalg.norm(err) < eps:
+                return np.array(q), True  # Converged successfully
+            if i >= IT_MAX:
+                print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
+                return np.array(q), False  # Did not converge
+            J = pin.computeJointJacobian(self.model, self.data, q, JOINT_ID)
+            J = -np.dot(pin.Jlog6(iMd.inverse()), J)
+            v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
+            q = pin.integrate(self.model, q, v * DT)
+            i += 1
+
+
     def _continous_move(self):
         """Handle continuous movement updates"""
         move_speed = 100
@@ -338,7 +371,26 @@ class JoyStick:
 
             if moving:
                 start_time = time.perf_counter()
-                self.mc.send_coords(self.global_states["origin"], move_speed, 1)
+                if self.control_angles:
+                    # Convert coords to position and rpy
+                    position = np.array(self.global_states["origin"][:3]) / 1000.0
+                    rpy = np.radians(self.global_states["origin"][3:])
+                    
+                    # Calculate IK
+                    q, converged = self._ik(
+                        self.last_q,
+                        position,
+                        rpy
+                    )
+                    if converged:
+                        angles = np.degrees(q).tolist()
+                        self.mc.send_angles(angles, move_speed)
+                        self.last_q = q
+                    else:
+                        print(f"pos {position} rpy {rpy} init_q {self.last_q} didn't converge. Fall back to coords control")
+                        self.mc.send_coords(self.global_states["origin"], move_speed, 1)
+                else:
+                    self.mc.send_coords(self.global_states["origin"], move_speed, 1)
                 dt = time.perf_counter() - start_time
                 print(f"moving {self.global_states['origin']}, send_coords took {dt*1000:.2f}ms")
 
