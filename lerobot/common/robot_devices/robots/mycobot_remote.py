@@ -19,6 +19,7 @@ from dataclasses import replace
 
 import torch
 
+from lerobot.common.robot_devices.cameras.utils import make_cameras_from_configs
 from lerobot.common.robot_devices.robots.mycobot_client import MyCobotClient
 from lerobot.common.robot_devices.robots.configs import MyCobotRobotConfig
 
@@ -33,8 +34,9 @@ class MyCobot280:
             # Overwrite config arguments using kwargs
             self.config = replace(config, **kwargs)
 
-        self.robot_type = self.config.robot_type
-        self.cameras = self.config.cameras
+        self.robot_type = self.config.type
+        self.cameras = make_cameras_from_configs(self.config.cameras)
+
         self.is_connected = False
 
         self.logs = {}
