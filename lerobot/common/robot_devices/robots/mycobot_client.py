@@ -91,7 +91,7 @@ class MyCobotClient:
             speed: Movement speed (1-100), defaults to 50
         """
         return self._send_command('send_action', {
-            'angles': action,
+            'action': action,
             'speed': speed
         })
 

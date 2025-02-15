@@ -105,8 +105,9 @@ class JoyStick:
         self.global_states = {
             "enable": True,
             "initialized": True,
-            "origin": None,
-            "last": None,
+            "origin": None,         # ee pos
+            "angles": None,         # joint angles
+            "last_angles": None,
             "gripper_val": 20,
             "last_gripper_val": 20,
             "pump": False,
@@ -147,9 +148,6 @@ class JoyStick:
         self._move_thread = None
         self._lock = threading.Lock()
 
-        self.control_angles = True   # if False, control ee coordinates
-        self.last_q = np.array([0.092, 0.147, -1.7, -0.106, 0.005, 0.129])
-
         # Add server socket initialization
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -161,7 +159,7 @@ class JoyStick:
         coords = self.mc.get_coords()
         while coords == None or coords == -1 or len(coords) != 6:
             print("get_coords", coords)
-            time.sleep(0.01)
+            time.sleep(0.05)
             coords = self.mc.get_coords()
         return coords
 
@@ -169,7 +167,7 @@ class JoyStick:
         angles = self.mc.get_angles()
         while angles == None or angles == -1 or len(angles) != 6:
             print("get_angles", angles)
-            time.sleep(0.01)
+            time.sleep(0.05)
             angles = self.mc.get_angles()
         return angles
 
@@ -177,14 +175,15 @@ class JoyStick:
         value = self.mc.get_gripper_value()
         while value == None or value == -1:
             print("get_gripper_value", value)
-            time.sleep(0.01)
+            time.sleep(0.05)
             value = self.mc.get_gripper_value()
         return value
 
     def start(self):
         """Start joystick control threads"""
         self.global_states["origin"] = self._get_coords()
-        self.global_states["last"] = deepcopy(self.global_states["origin"])
+        self.global_states["angles"] = self._get_angles()
+        self.global_states["last_angles"] = deepcopy(self.global_states["angles"])
         self.global_states["gripper_val"] = self._get_gripper_value()
         self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
         
@@ -253,6 +252,9 @@ class JoyStick:
 
         elif key == JoyStickKey.R1:
             self.mc.send_angles(self.arm_angle_table["init"], self.arm_speed)
+            with self._lock:
+                self.global_states["last_angles"] = self.global_states["angles"]
+                self.global_states["angles"] = self.arm_angle_table["init"]
             self.global_states["enable"] = True
             time.sleep(3)
             self.global_states["origin"] = self._get_coords()
@@ -281,8 +283,12 @@ class JoyStick:
             self.mc.power_on()
         elif key == JoyStickKey.L1 and not_zero(value):
             self.mc.send_angles([0, 0, 0, 0, 0, 0], 50)
+            with self._lock:
+                self.global_states["last_angles"] = self.global_states["angles"]
+                self.global_states["angles"] = [0, 0, 0, 0, 0, 0]
             time.sleep(3)
-            self.global_states["origin"] = None
+            self.global_states["origin"] = self._get_coords()
+
 
         # Handle tool controls
         if key == JoyStickKey.RLeftKey:
@@ -371,36 +377,34 @@ class JoyStick:
 
             if moving:
                 start_time = time.perf_counter()
-                if self.control_angles:
-                    # Convert coords to position and rpy
-                    position = np.array(self.global_states["origin"][:3]) / 1000.0
-                    rpy = np.radians(self.global_states["origin"][3:])
-                    
-                    # Calculate IK
-                    q, converged = self._ik(
-                        self.last_q,
-                        position,
-                        rpy
-                    )
-                    if converged:
-                        angles = np.degrees(q).tolist()
-                        self.mc.send_angles(angles, move_speed)
-                        self.last_q = q
-                    else:
-                        print(f"pos {position} rpy {rpy} init_q {self.last_q} didn't converge. Fall back to coords control")
-                        self.mc.send_coords(self.global_states["origin"], move_speed, 1)
+
+                # Convert coords to position and rpy
+                position = np.array(self.global_states["origin"][:3]) / 1000.0
+                rpy = np.radians(self.global_states["origin"][3:])
+                q_init = np.radians(np.array(self.global_states["angles"]))
+                
+                # Calculate IK
+                q, converged = self._ik(
+                    q_init,
+                    position,
+                    rpy
+                )
+                if converged:
+                    angles = np.degrees(q).tolist()
+                    self.mc.send_angles(angles, move_speed)
+                    with self._lock:
+                        self.global_states["last_angles"] = self.global_states["angles"]
+                        self.global_states["angles"] = angles
                 else:
+                    print(f"pos {position} rpy {rpy} init_q {self.global_states["angles"]} ik didn't converge. Fall back to coords control")
                     self.mc.send_coords(self.global_states["origin"], move_speed, 1)
+                    # todo: how to update angles? 
+
                 dt = time.perf_counter() - start_time
                 formatted_origin = [f"{x:.2f}" for x in self.global_states['origin']]
-                print(f"moving {formatted_origin}, send_coords took {dt*1000:.2f}ms")
+                print(f"moving {formatted_origin} took {dt*1000:.2f}ms")
 
             time.sleep(0.02)
-
-            # looks like _get_coords() is high cost, while _get_angles() is ok.
-            # if moving:
-            #     angles = self._get_angles()
-            #     print("angles", angles)
 
     def _update_coordinates(self, key, value, ratio):
         """Update target coordinates based on joystick input"""
@@ -408,8 +412,6 @@ class JoyStick:
         with self._lock:
             if self.global_states["origin"] is None:
                 return
-
-            self.global_states["last"] = deepcopy(self.global_states["origin"])
 
             if key == JoyStickContinous.LeftXAxis:
                 self.global_states["origin"][0] += value * ratio * 2
@@ -439,25 +441,6 @@ class JoyStick:
                 self.global_states["origin"][4] += 1 * ratio
                 if self.global_states["origin"][4] > 180:
                     self.global_states["origin"][4] -= 360
-
-    def get_current_coords(self) -> list[float] | None:
-        """Get current target coordinates in a thread-safe way
-        
-        Returns:
-            list[float] | None: Current coordinates [x,y,z,rx,ry,rz] or None if not initialized
-        """
-        with self._lock:
-            if self.global_states["last"] is None:
-                return None
-            return deepcopy(self.global_states["last"])
-
-    def get_action(self) -> list[float] | None:
-        with self._lock:
-            if self.global_states["origin"] is None:
-                return None
-            ret = deepcopy(self.global_states["origin"])
-            ret.append(self.global_states["gripper_val"])
-            return ret
     
     def _handle_clients(self):
         """Handle client connections and requests"""
@@ -481,73 +464,53 @@ class JoyStick:
                         
                         # Handle commands
                         response = {'status': 'error', 'data': None}
-                        if command == 'get_gripper_value':
-                            use_robot_data = params.get('use_robot_data', False)
-                            if use_robot_data:
-                                value = self._get_gripper_value()
-                            else:
-                                with self._lock:
-                                    value = self.global_states["last_gripper_val"]
+                        if command == 'get_state':
+                            value = self.global_states["last_angles"]
+                            value.append(self.global_states["last_gripper_val"])
                             response = {
                                 'status': 'ok',
                                 'data': value
                             }
-                        elif command == 'get_coords':
-                            # use_robot_data = params.get('use_robot_data', False)
-                            # if use_robot_data:
-                            #     coords = self._get_angles() # hack!!! _get_coords()
-                            # else:
-                            #     with self._lock:
-                            #       coords = deepcopy(self.global_states["last"])
-                            coords = np.degrees(self.last_q).tolist()
-                            response = {
-                                'status': 'ok',
-                                'data': coords #if coords is None else list(coords)
-                            }
                         elif command == 'get_action':
-                            action = self.get_action()
+                            value = self.global_states["angles"]
+                            value.append(self.global_states["gripper_val"])
                             response = {
                                 'status': 'ok',
-                                'data': action if action is None else list(action)
+                                'data': value
                             }
-                        elif command == 'set_gripper_value':
-                            value = params.get('value')
+                        elif command == 'send_action':
+                            action = params.get('action')
                             speed = params.get('speed', 50)
-                            with self._lock:
-                                self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
-                                self.global_states["gripper_val"] = value
-                                self.mc.set_gripper_value(value, speed)
-                            response = {
-                                'status': 'ok',
-                                'data': None
-                            }
-                        elif command == 'send_angles':
-                            angles = params.get('angles')
-                            speed = params.get('speed', 50)
-                            if not angles or len(angles) != 6:
+                            if not action or len(action) != 7:
                                 response = {
                                     'status': 'error',
-                                    'error': 'Invalid angles parameter'
+                                    'error': 'Invalid action parameter'
                                 }
                             else:
+                                angles = action[:6]
+                                gripper_value = action[6]
                                 self.mc.send_angles(angles, speed)
+                                self.mc.set_gripper_value(gripper_value, speed)
+
                                 response = {
                                     'status': 'ok',
                                     'data': None
                                 }
 
                                 # convert angles to ee coords and update global_states
-                                radians = np.array(angles) / 180 * 3.141592653589793
+                                radians = np.radians(np.array(angles))
                                 pin.forwardKinematics(self.model, self.data, radians)
                                 rot_current = self.data.oMi[6].rotation
                                 rpy_current = pin.rpy.matrixToRpy(rot_current)
                                 coords = (self.data.oMi[6].translation * 1000).tolist()
-                                coords.extend((rpy_current / 3.141592653589793 * 180).tolist())
+                                coords.extend(np.degrees(rpy_current).tolist())
 
                                 with self._lock:
-                                    self.global_states["last"] = deepcopy(self.global_states["origin"])
                                     self.global_states["origin"] = coords
-                                    self.last_q = radians
+                                    self.global_states["last_angles"] = deepcopy(self.global_states["angles"])
+                                    self.global_states["angles"] = angles
+                                    self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
+                                    self.global_states["gripper_val"] = value
                             
                         # Send response
                         response_data = json.dumps(response).encode('utf-8')
