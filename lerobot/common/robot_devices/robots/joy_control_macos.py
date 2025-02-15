@@ -488,7 +488,7 @@ class JoyStick:
                                 }
                             else:
                                 angles = action[:6]
-                                gripper_value = action[6]
+                                gripper_value = int(action[6])
                                 self.mc.send_angles(angles, speed)
                                 self.mc.set_gripper_value(gripper_value, speed)
 
