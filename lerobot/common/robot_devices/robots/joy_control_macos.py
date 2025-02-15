@@ -396,7 +396,7 @@ class JoyStick:
                         self.global_states["last_angles"] = self.global_states["angles"]
                         self.global_states["angles"] = angles
                 else:
-                    print(f"pos {position} rpy {rpy} init_q {self.global_states["angles"]} ik didn't converge. Fall back to coords control")
+                    print(f"pos {position} rpy {rpy} init_q {self.global_states['angles']} ik didn't converge. Fall back to coords control")
                     self.mc.send_coords(self.global_states["origin"], move_speed, 1)
                     # todo: how to update angles? 
 
@@ -465,14 +465,14 @@ class JoyStick:
                         # Handle commands
                         response = {'status': 'error', 'data': None}
                         if command == 'get_state':
-                            value = self.global_states["last_angles"]
+                            value = deepcopy(self.global_states["last_angles"])
                             value.append(self.global_states["last_gripper_val"])
                             response = {
                                 'status': 'ok',
                                 'data': value
                             }
                         elif command == 'get_action':
-                            value = self.global_states["angles"]
+                            value = deepcopy(self.global_states["angles"])
                             value.append(self.global_states["gripper_val"])
                             response = {
                                 'status': 'ok',
@@ -510,7 +510,8 @@ class JoyStick:
                                     self.global_states["last_angles"] = deepcopy(self.global_states["angles"])
                                     self.global_states["angles"] = angles
                                     self.global_states["last_gripper_val"] = self.global_states["gripper_val"]
-                                    self.global_states["gripper_val"] = value
+                                    self.global_states["gripper_val"] = gripper_value
+                                print(self.global_states)
                             
                         # Send response
                         response_data = json.dumps(response).encode('utf-8')
