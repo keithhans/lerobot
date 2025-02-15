@@ -36,7 +36,7 @@ policy = ACTPolicy.from_pretrained(args.ckpt_path)
 policy.to(device)
 
 for _ in range(inference_time_s * fps):
-    start_time = time.perf_counter()
+    t0 = time.perf_counter()
 
     # Read the follower state and access the frames from the cameras
     observation = robot.capture_observation()
@@ -60,10 +60,10 @@ for _ in range(inference_time_s * fps):
     # Move to cpu, if not already the case
     # action = action.to("cpu")
     t2 = time.perf_counter()
-    print(f"{(t2-t1):.3f}s", action)
+    print(f"{(t1-t0):.3f}s {(t2-t1):.3f}s action {action}")
 
     # Order the robot to move
     robot.send_action(action)
 
-    dt_s = time.perf_counter() - start_time
+    dt_s = time.perf_counter() - t0
     busy_wait(1 / fps - dt_s)
