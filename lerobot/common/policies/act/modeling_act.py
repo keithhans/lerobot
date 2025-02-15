@@ -37,6 +37,7 @@ from torchvision.ops.misc import FrozenBatchNorm2d
 from lerobot.common.policies.act.configuration_act import ACTConfig
 from lerobot.common.policies.normalize import Normalize, Unnormalize
 
+import time
 
 class ACTPolicy(
     nn.Module,
@@ -121,7 +122,10 @@ class ACTPolicy(
         # Action queue logic for n_action_steps > 1. When the action_queue is depleted, populate it by
         # querying the policy.
         if len(self._action_queue) == 0:
-            actions = self.model(batch)[0][:, : self.config.n_action_steps]
+            t0 = time.perf_counter()
+            actions = self.model(batch)[0][:, ::3][:, : self.config.n_action_steps // 3]
+            t1 = time.perf_counter()
+            print("inference time", t1-t0)
 
             # TODO(rcadene): make _forward return output dictionary?
             actions = self.unnormalize_outputs({"action": actions})["action"]
