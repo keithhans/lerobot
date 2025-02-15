@@ -15,20 +15,12 @@
 # limitations under the License.
 
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 
 import torch
 
-from lerobot.common.robot_devices.cameras.utils import Camera
 from lerobot.common.robot_devices.robots.mycobot_client import MyCobotClient
-
-import pinocchio as pin
-import numpy as np
-
-
 from lerobot.common.robot_devices.robots.configs import MyCobotRobotConfig
-
-
 
 class MyCobot280:
     """Wrapper of stretch_body.robot.Robot"""
@@ -97,7 +89,6 @@ class MyCobot280:
             },
         }
 
-
     def connect(self) -> None:
         self.mc = MyCobotClient()
         # todo: add error checking later
@@ -114,38 +105,6 @@ class MyCobot280:
             print("Could not connect to the cameras, check that all cameras are plugged-in.")
             raise ConnectionError()
 
-        urdf_filename = "lerobot/common/robot_devices/robots/mycobot_280_pi.urdf"
-        self.model = pin.buildModelFromUrdf(urdf_filename)
-        self.data = self.model.createData()
-
-
-    def ik(self, q_init, target_position, target_rpy=None):
-        JOINT_ID = 6
-        eps = 1e-4
-        IT_MAX = 1000
-        DT = 1e-1
-        damp = 1e-12
-
-        if target_rpy is None:
-            target_rpy = [-3.1416, 0, -1.5708]  # Default RPY if not specified
-        target_rotation = pin.utils.rpyToMatrix(target_rpy[0], target_rpy[1], target_rpy[2])
-        oMdes = pin.SE3(target_rotation, target_position)
-        q = q_init.copy()
-        i = 0
-        while True:
-            pin.forwardKinematics(self.model, self.data, q)
-            iMd = self.data.oMi[JOINT_ID].actInv(oMdes)
-            err = pin.log(iMd).vector
-            if np.linalg.norm(err) < eps:
-                return np.array(q), True  # Converged successfully
-            if i >= IT_MAX:
-                print(f"Warning: max iterations reached without convergence. error norm:{np.linalg.norm(err)}")
-                return np.array(q), False  # Did not converge
-            J = pin.computeJointJacobian(self.model, self.data, q, JOINT_ID)
-            J = -np.dot(pin.Jlog6(iMd.inverse()), J)
-            v = -J.T.dot(np.linalg.solve(J.dot(J.T) + damp * np.eye(6), err))
-            q = pin.integrate(self.model, q, v * DT)
-            i += 1
 
     def teleop_step(
         self, record_data=False
@@ -156,9 +115,7 @@ class MyCobot280:
 
         before_read_t = time.perf_counter()
         state = self.get_state()
-
-        # Temporarily use target coord for action, IK will be calculated later
-        action = self.mc.get_action()     #[0, 0, 0, 0, 0, 0, state["gripper"]]
+        action = self.mc.get_action()
         self.logs["read_pos_dt_s"] = time.perf_counter() - before_read_t
         #print(self.logs["read_pos_dt_s"], state, action)
 
@@ -189,24 +146,17 @@ class MyCobot280:
 
         return obs_dict, action_dict
 
-    def get_state(self, use_robot_data = False) -> dict:
-        coords = self.mc.get_coords(use_robot_data)
-        gripper_value = self.mc.get_gripper_value(use_robot_data)
-
-        while coords == None:
-            print("Can't get coords, sleep for 10ms...")
-            time.sleep(0.01)
-            coords = self.mc.get_coords(use_robot_data)
-            gripper_value = self.mc.get_gripper_value(use_robot_data)
+    def get_state(self) -> dict:
+        state = self.mc.get_state()
 
         return {
-            "x": coords[0],
-            "y": coords[1],
-            "z": coords[2],
-            "rx": coords[3],
-            "ry": coords[4],
-            "rz": coords[5],
-            "gripper": gripper_value,
+            "j0": state[0],
+            "j1": state[1],
+            "j2": state[2],
+            "j3": state[3],
+            "j4": state[4],
+            "j5": state[5],
+            "gripper": state[6],
         }
 
     def capture_observation(self) -> dict:
@@ -242,18 +192,13 @@ class MyCobot280:
         if not self.is_connected:
             raise ConnectionError()
 
-        # convert action to angles
-        angles = action[:6].tolist()
-
         before_write_t = time.perf_counter()
-        self.mc.send_angles(angles, 50)
-        # print("action:", angles, action[6].item())
-        self.mc.set_gripper_value(int(action[6].item()), 50)
+        self.mc.send_action(action.tolist(), 50)
         self.logs["write_pos_dt_s"] = time.perf_counter() - before_write_t
 
         # get the actual action since user might override the action
-        action = self.mc.get_action()
-        action = torch.as_tensor(list(action))
+        # action = self.mc.get_action()
+        # action = torch.as_tensor(list(action))
 
         return action
 

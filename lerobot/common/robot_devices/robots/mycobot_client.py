@@ -66,55 +66,32 @@ class MyCobotClient:
         except Exception as e:
             self.disconnect()  # Reset connection on error
             raise RuntimeError(f"Communication error: {e}")
-        
-    def get_gripper_value(self, use_robot_data: bool = False) -> float:
-        """Get current gripper value
-        
-        Args:
-            use_robot_data: If True, get value directly from robot, otherwise use cached value
-        """
-        return self._send_command('get_gripper_value', {'use_robot_data': use_robot_data})
-        
+                
     def get_action(self) -> Optional[List[float]]:
-        """Get current robot action (position + gripper)
+        """Get current robot action (joint angles + gripper)
         
         Returns:
-            List of [x,y,z,rx,ry,rz,gripper] or None if not available
+            List of [j0,j1,j2,j3,j4,j5,gripper] or None if not available
         """
         return self._send_command('get_action')
         
-    def get_coords(self, use_robot_data: bool = False) -> Optional[List[float]]:
-        """Get current coordinates
-        
-        Args:
-            use_robot_data: If True, get coords directly from robot, otherwise use cached value
-            
+    def get_state(self) -> Optional[List[float]]:
+        """Get current state (joint angles + gripper)
+                   
         Returns:
-            List of [x,y,z,rx,ry,rz] or None if not available
+            List of [j0,j1,j2,j3,j4,j5,gripper] or None if not available
         """
-        return self._send_command('get_coords', {'use_robot_data': use_robot_data})
+        return self._send_command('get_state')
         
-    def set_gripper_value(self, value: int, speed: int = 50) -> None:
-        """Set gripper value
+    def send_action(self, action: List[float], speed: int = 50) -> None:
+        """Send action (joint angles + gripper) to robot 
         
         Args:
-            value: Gripper value (20-100)
+            action: List of [j0,j1,j2,j3,j4,j5,gripper]
             speed: Movement speed (1-100), defaults to 50
         """
-        return self._send_command('set_gripper_value', {
-            'value': value,
-            'speed': speed
-        })
-        
-    def send_angles(self, angles: List[float], speed: int = 50) -> None:
-        """Send joint angles to robot
-        
-        Args:
-            angles: List of 6 joint angles in degrees
-            speed: Movement speed (1-100), defaults to 50
-        """
-        return self._send_command('send_angles', {
-            'angles': angles,
+        return self._send_command('send_action', {
+            'angles': action,
             'speed': speed
         })
 
@@ -132,16 +109,12 @@ def main():
                 action = client.get_action()
                 if action is not None:
                     print(f"Current action: {action}")
-                    
-                gripper = client.get_gripper_value(False)
-                print(f"Gripper value: {gripper}")
-                
-                coords = client.get_coords(False)
-                print(f"Current coords: {coords}")
+                                    
+                state = client.get_state()
+                print(f"Current coords: {state}")
                 
                 # Test controls
-                client.set_gripper_value(50)  # Set to middle position
-                client.send_angles([0, 0, -90, 0, 0, 0], 50)  # Move to home position
+                client.send_action([0, 0, -90, 0, 0, 0, 40], 50)  # Move to home position
                 
                 time.sleep(5)
                 
